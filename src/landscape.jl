@@ -16,8 +16,12 @@ function load_xr_raster(path)
     return da
 end
 
+function xr_dataset_to_array(datset)
+    return pyconvert(Array{Float32}, datset.to_array().to_numpy())[:,1,:,:]
+end
+
 function load_xr_dataset(path)
-    da = rioxarray.open_dataset(path)
+    da = rioxarray.open_rasterio(path, mask_and_scale=true)
     # we load slightly more than the extent to be able to correctly interpolate
     # cda = da.sel(band=1)
     # temp_raster = pyconvert(Array{Float32}, cda.drop_vars("band").to_numpy()) # we keep `spatial_ref` var. as it contains crs data

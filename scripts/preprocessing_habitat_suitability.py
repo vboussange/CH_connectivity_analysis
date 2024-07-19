@@ -48,8 +48,8 @@ def crop_raster(raster):
 
 
 if __name__ == "__main__":
-    buffer_distance = 100000  # 100km in meters
-    resampling_factor = 0
+    buffer_distance = 50000  # 100km in meters
+    resampling_factor = 4
     
     input_dir = Path(__file__).parent / '../../data/GUILDES_EU/'
     output_file = input_dir.parent / f"{input_dir.stem}_buffer_dist={int(buffer_distance/1000)}km_resampling_{resampling_factor}.nc"
@@ -58,9 +58,12 @@ if __name__ == "__main__":
     raster_files = list(Path(input_dir).glob('*.tif'))
     rasters = [load_raster(file) for file in raster_files]
     cropped_rasters = [crop_raster(raster) for raster in rasters]
-    dataset = xr.merge(cropped_rasters, join="left")
 
-    # cropped_and_coarsened_raster = coarsen_raster(rasters, resampling_factor)
+    cropped_and_coarsened_raster = [coarsen_raster(raster, resampling_factor) for raster in cropped_rasters]
+    
     
     print(f"saved at {output_file}")
+    dataset = xr.merge(cropped_and_coarsened_raster, join="left")
     dataset.to_netcdf(output_file, engine='netcdf4')
+    
+    dataset = rioxarray.open_rasterio(output_file, mask_and_scale=True)

@@ -1,1 +1,3 @@
 .CondaPkg
+*.jld2
+*.png

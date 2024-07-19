@@ -19,7 +19,7 @@ dir = "img/"
 θ = 0.5
 
 for k in keys(LEGEND)
-    hab_qual = Raster("../data/hsv_guilde_$(k)_$(RESOLUTION).tif")
+    hab_qual = Raster("../../data/guild_old/hsv_guilde_$(k)_$(RESOLUTION).tif")
     hab_qual = replace_missing(hab_qual, NaN)
     hab_qual = Matrix(transpose(Array(hab_qual)[:, :, 1]))
 
