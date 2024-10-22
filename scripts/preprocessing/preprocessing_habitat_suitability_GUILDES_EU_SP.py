@@ -1,6 +1,8 @@
 """
 Cropping habitat suitability rasters with a buffer around CH, and upsampling.
 Saving all guilds in an xarrray dataset within a netcdf.
+
+# TODO: you may consider for aquatic bodies to use connection points
 """
 
 import geopandas as gpd
@@ -10,27 +12,10 @@ from shapely.geometry import box
 from pathlib import Path
 import netCDF4
 import pandas as pd
-import swissTLMRegio
+from swissTLMRegio import MasksDataset, get_CH_border
+from TraitsCH import TraitsCH
 
-CH_BOUNDARY_PATH = Path(__file__).parent / '../../../data/swiss_boundaries/swissBOUNDARIES3D_1_5_TLM_LANDESGEBIET.shp'
-TRAITS_CH_PATH = Path(__file__).parent / '../../../data/TraitsCH/dispersal_focus/S_MEAN_dispersal_all.txt'
 CRS = "EPSG:2056" # https://epsg.io/2056
-
-class TraitsCH():
-    def __init__(self):
-        self.path = TRAITS_CH_PATH
-        df = pd.read_csv(TRAITS_CH_PATH, delimiter=" ", na_values=["NA"])
-        # TODO: dummy place holder, to be changed
-        df["habitat"] = "Aqu"
-        self.data = df
-        
-    def get_habitat(self, species_name):
-        df = self.data
-        species_row = df[df['Species'] == species_name]
-        if not species_row.empty:
-            return species_row['habitat'].values[0]
-        else:
-            raise ValueError(f"Species '{species_name}' not found in the dataset.")
                 
 def calculate_resolution(raster):
     lat_resolution = abs(raster.y.diff(dim='y').mean().values)
@@ -54,11 +39,11 @@ def crop_raster(raster, buffer):
     return masked_raster
 
 
-def mask_raster(raster, traits_dataset, habitat_dataset):
+def mask_raster(raster, traits_dataset, masks_dataset):
     sp_name = raster.name
     hab = traits_dataset.get_habitat(sp_name)
     if hab == "Aqu":
-        mask = habitat_dataset.rivers
+        mask = masks_dataset[hab]
         raster_masked = raster.rio.clip(mask, all_touched=True, drop=True)
         
     else:
@@ -70,14 +55,14 @@ def mask_raster(raster, traits_dataset, habitat_dataset):
 if __name__ == "__main__":
     buffer_distance = 50000 # meters
     resampling_factor = 8
-    switzerland_boundary = gpd.read_file(CH_BOUNDARY_PATH)
+    switzerland_boundary = get_CH_border()
     switzerland_buffer = switzerland_boundary.buffer(buffer_distance)
 
     input_dir = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
     output_file = input_dir / f"{input_dir.stem}_buffer_dist={int(buffer_distance/1000)}km_resampling_{resampling_factor}.nc"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
-    habitat_dataset = HabitatDataset()
+    masks_dataset = MasksDataset(buffer_distance=250)
     traits_dataset = TraitsCH()
 
     # raster_files = list(Path(input_dir).glob('**/*.tif'))
@@ -85,7 +70,9 @@ if __name__ == "__main__":
     rasters = [load_raster(file) for file in raster_files]
     # reprojections
     rasters = [rast.rio.reproject(CRS) for rast in rasters]
-
+    
+    # masking
+    rasters = [mask_raster(rast, traits_dataset, masks_dataset) for rast in rasters]
 
     print("Original raster of resolution:")
     lat_resolution, lon_resolution = calculate_resolution(rasters[0])
@@ -104,4 +91,4 @@ if __name__ == "__main__":
     dataset = xr.merge(cropped_and_coarsened_raster, join="left")
     dataset.to_netcdf(output_file, engine='netcdf4')
     
-    # dataset = rioxarray.open_rasterio(output_file, mask_and_scale=True)
+    # dataset = xr.open_dataset(output_file, engine='netcdf4', decode_coords="all")

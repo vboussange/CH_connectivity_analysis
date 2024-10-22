@@ -3,17 +3,25 @@ xr = pyimport("xarray")
 rioxarray = pyimport("rioxarray")
 plt = pyimport("matplotlib.pyplot")
 gpd = pyimport("geopandas")
+pyimport("netCDF4")
 using ConScape: N8
 
 const SWISS_BOUNDARY_FILE = joinpath(@__DIR__(), "../../data/swiss_boundaries/swissBOUNDARIES3D_1_5_TLM_LANDESGEBIET.shp")
 
-function load_xr_raster(path)
-    da = rioxarray.open_rasterio(path, mask_and_scale=true)
-    # we load slightly more than the extent to be able to correctly interpolate
-    # cda = da.sel(band=1)
-    # temp_raster = pyconvert(Array{Float32}, cda.drop_vars("band").to_numpy()) # we keep `spatial_ref` var. as it contains crs data
-    da.close()
+function load_xr_dataset(path)
+    da = xr.open_dataset(path, engine="netcdf4", decode_coords="all")   
     return da
+end
+
+
+function xr_dataarray_to_array(dataset)
+    # returns a 3d array, where first dimension corresponds to
+    # `list(dataset.data_vars)` - in the same order! Check snippet to convince
+    # yourself
+    # ```all(filter(!isnan, dropdims(pyconvert(Array,
+    # dataset[guild_names[1]].values), dims=1)) .== filter(!isnan,
+    # guilde_arrays[1, :, :])) == true```
+    return pyconvert(Array{Float32}, dataset.to_numpy())[1,:,:]
 end
 
 function xr_dataset_to_array(dataset)
@@ -24,15 +32,6 @@ function xr_dataset_to_array(dataset)
     # dataset[guild_names[1]].values), dims=1)) .== filter(!isnan,
     # guilde_arrays[1, :, :])) == true```
     return pyconvert(Array{Float32}, dataset.to_array().to_numpy())[:,1,:,:]
-end
-
-function load_xr_dataset(path)
-    da = rioxarray.open_rasterio(path, mask_and_scale=true)
-    # we load slightly more than the extent to be able to correctly interpolate
-    # cda = da.sel(band=1)
-    # temp_raster = pyconvert(Array{Float32}, cda.drop_vars("band").to_numpy()) # we keep `spatial_ref` var. as it contains crs data
-    da.close()
-    return da
 end
 
 """
