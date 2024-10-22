@@ -16,8 +16,14 @@ function load_xr_raster(path)
     return da
 end
 
-function xr_dataset_to_array(datset)
-    return pyconvert(Array{Float32}, datset.to_array().to_numpy())[:,1,:,:]
+function xr_dataset_to_array(dataset)
+    # returns a 3d array, where first dimension corresponds to
+    # `list(dataset.data_vars)` - in the same order! Check snippet to convince
+    # yourself
+    # ```all(filter(!isnan, dropdims(pyconvert(Array,
+    # dataset[guild_names[1]].values), dims=1)) .== filter(!isnan,
+    # guilde_arrays[1, :, :])) == true```
+    return pyconvert(Array{Float32}, dataset.to_array().to_numpy())[:,1,:,:]
 end
 
 function load_xr_dataset(path)
