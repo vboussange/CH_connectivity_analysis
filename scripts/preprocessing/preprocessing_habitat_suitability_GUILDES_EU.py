@@ -1,5 +1,6 @@
 """
 Cropping habitat suitability rasters with a buffer around CH, and upsampling.
+Saving all guilds in an xarrray dataset within a netcdf.
 """
 
 import geopandas as gpd
