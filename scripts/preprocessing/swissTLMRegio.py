@@ -18,6 +18,10 @@ def get_CH_border():
     gdf = gpd.read_file(SWISSTLMREGIO_BOUNDARIES_PATH, layer="swisstlmregio_landesgebiet")
     return gdf[gdf.icc == "CH"].geometry
 
+def get_canton_border(canton):
+    # layers = pyogrio.list_layers(SWISSTLMREGIO_BOUNDARIES_PATH)
+    gdf = gpd.read_file(SWISSTLMREGIO_BOUNDARIES_PATH, layer="swisstlmregio_kantonsgebiet")
+    return gdf[gdf.name == canton].geometry
     
 
 class BaseMaskDataset:
@@ -42,8 +46,8 @@ class BaseMaskDataset:
 
 
 class AquaticMaskDataset(BaseMaskDataset):
-    def __init__(self, buffer_distance=500):
-        super().__init__(SWISSTLMREGIO_PATH, f"Aqu_mask_buffer_distance={buffer_distance}.gpkg", buffer_distance)
+    def __init__(self):
+        super().__init__(SWISSTLMREGIO_PATH, f"Aqu_mask_buffer_distance.gpkg")
 
     def create_mask(self):        
         # Load river and lake layers
@@ -51,7 +55,7 @@ class AquaticMaskDataset(BaseMaskDataset):
         gdf_lakes = gpd.read_file(self.path, layer="tlmregio_hydrography_lake")
         
         # Apply buffer to the rivers
-        gdf_rivers = gdf_rivers.buffer(self.buffer_distance)
+        # gdf_rivers = gdf_rivers.buffer(self.buffer_distance)
         
         # Concatenate river and lake geometries
         gdf_aqu = pd.concat([gdf_rivers.geometry, gdf_lakes.geometry])
@@ -64,10 +68,10 @@ class AquaticMaskDataset(BaseMaskDataset):
         self.mask = gdf_aqu_merged
         
 class MasksDataset:
-    def __init__(self, buffer_distance=500):
+    def __init__(self):
         # Create a dictionary of mask datasets. More masks can be added in the future.
         self.masks = {
-            "Aqu": AquaticMaskDataset(buffer_distance=buffer_distance),
+            "Aqu": AquaticMaskDataset(),
             # "Road": RoadMaskDataset(buffer_distance=buffer_distance)  # Example of another mask
         }
 

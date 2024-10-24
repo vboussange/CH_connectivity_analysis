@@ -12,7 +12,7 @@ from shapely.geometry import box
 from pathlib import Path
 import netCDF4
 import pandas as pd
-from swissTLMRegio import MasksDataset, get_CH_border
+from swissTLMRegio import MasksDataset, get_canton_border
 from TraitsCH import TraitsCH
 
 CRS = "EPSG:2056" # https://epsg.io/2056
@@ -23,8 +23,9 @@ def calculate_resolution(raster):
     return lat_resolution, lon_resolution
 
 def coarsen_raster(raster, resampling_factor):
-    raster = raster.coarsen(x=resampling_factor, y=resampling_factor, boundary='trim').mean()
-    return raster
+    raster_coarse = raster.coarsen(x=resampling_factor, y=resampling_factor, boundary='trim').mean()
+    raster_coarse.rio.set_crs(raster.rio.crs)
+    return raster_coarse
     
 def load_raster(path):
     # Load the raster file
@@ -53,13 +54,14 @@ def mask_raster(raster, traits_dataset, masks_dataset):
 
 
 if __name__ == "__main__":
-    buffer_distance = 50000 # meters
-    resampling_factor = 8
-    switzerland_boundary = get_CH_border()
-    switzerland_buffer = switzerland_boundary.buffer(buffer_distance)
+    buffer_distance = 500 # meters
+    resampling_factor = 1
+    canton = "Zug"
+    boundary = get_canton_border("Zug")
+    boundary_buffer = boundary.buffer(buffer_distance)
 
     input_dir = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
-    output_file = input_dir / f"{input_dir.stem}_buffer_dist={int(buffer_distance/1000)}km_resampling_{resampling_factor}.nc"
+    output_file = input_dir / f"{input_dir.stem}_{canton}_resampling_{resampling_factor}.nc"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     
     masks_dataset = MasksDataset()
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     print(f"Latitude resolution: {lat_resolution/1000:0.2f}km")
     print(f"Longitude resolution: {lon_resolution/1000:0.2f}km")
     
-    cropped_rasters = [crop_raster(raster, switzerland_buffer) for raster in rasters]
+    cropped_rasters = [crop_raster(raster, boundary_buffer) for raster in rasters]
 
     cropped_and_coarsened_raster = [coarsen_raster(raster, resampling_factor) for raster in cropped_rasters]
     print("Coarse raster of resolution:")
