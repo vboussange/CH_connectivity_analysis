@@ -66,7 +66,7 @@ while total_func_hab > 0
     cell_importance[it * nb_cells_to_discard + 1:(it +1) * nb_cells_to_discard] = cells_to_discard
     hab_qual[cells_to_discard] .= 0
     it+=1
-    total_func_hab = sum(filter(!isnan, hab_qual))
+    total_func_hab = sum(filter(!isnan, func))
 end
 
 # mapping importance
