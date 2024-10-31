@@ -67,18 +67,18 @@ y_steps = (height_raster - buffer_size * 2) ÷ window_size
 
 
 data_array = dataset[sp_name] / 100
-# output_array = xr.full_like(data_array, NaN)
-output_array = fill(NaN, width_raster, height_raster)
+output_array = xr.full_like(data_array, NaN)
+# output_array = fill(NaN, width_raster, height_raster)
 # Now we iterate over the buffered windows
-for i in 1:(x_steps-1)
-    for j in 1:(y_steps-1)
+for i in 0:(x_steps-1)
+    for j in 0:(y_steps-1)
         x_start = i * step_size
         y_start = j * step_size
         # Extract the buffered window from the raw dataset
         buffered_window = data_array.isel(
             x=pyslice(x_start, x_start + total_window_size),
             y=pyslice(y_start, y_start + total_window_size)
-        )
+            )
         hab_qual = xr_dataarray_to_array(buffered_window)
         if !all(isnan.(hab_qual)) && any(hab_qual .> cut_off)
             g = GridGraph(hab_qual; vertex_activities = hab_qual .> cut_off)
@@ -96,28 +96,21 @@ for i in 1:(x_steps-1)
             # This is not working
             # output_array.isel(x = pyslice(x_start + buffer_size, x_start + buffer_size + window_size),
             #                 y = pyslice(y_start + buffer_size, y_start + buffer_size + window_size)) .= sensitivities
-            output_array[x_start + buffer_size:x_start + buffer_size + window_size, y_start + buffer_size:y_start + buffer_size + window_size] .= sensitivities[buffer_size:buffer_size+window_size, buffer_size:buffer_size+window_size]
+            range = buffer_size:(buffer_size+window_size)
+            @show x_start, y_start
+            output_array.values[0, pyslice(x_start + buffer_size, x_start + buffer_size + window_size), pyslice(y_start + buffer_size, y_start + buffer_size + window_size)] = sensitivities[buffer_size+1:(buffer_size+window_size), buffer_size+1:(buffer_size+window_size)]
         end
     end
 end
 
 using Plots
-heatmap(output_array)
+heatmap(pyconvert(Array, output_array.values)[1, :, :])
 
 #=
 TODO:
 - We need to find a way to incorporate back `sensitivities` into the xarray
 - The trick using a Julia array to store output works, but something is wrong with the coordinates - check plot
 =#
-
-
-
-
-
-
-
-
-
 
 fig, ax = plt.subplots()
 output_array.plot(ax=ax)
