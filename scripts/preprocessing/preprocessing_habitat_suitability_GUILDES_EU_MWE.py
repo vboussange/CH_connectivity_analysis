@@ -54,7 +54,7 @@ def mask_raster(raster, traits_dataset, masks_dataset):
 
 
 if __name__ == "__main__":
-    buffer_distance = 500 # meters
+    buffer_distance = 50000 # meters
     resampling_factor = 1
     canton = "Zug"
     boundary = get_canton_border("Zug")

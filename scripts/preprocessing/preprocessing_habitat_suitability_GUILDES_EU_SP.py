@@ -23,8 +23,9 @@ def calculate_resolution(raster):
     return lat_resolution, lon_resolution
 
 def coarsen_raster(raster, resampling_factor):
-    raster = raster.coarsen(x=resampling_factor, y=resampling_factor, boundary='trim').mean()
-    return raster
+    raster_coarse = raster.coarsen(x=resampling_factor, y=resampling_factor, boundary='trim').mean()
+    raster_coarse.rio.set_crs(raster.rio.crs)
+    return raster_coarse
     
 def load_raster(path):
     # Load the raster file
@@ -53,8 +54,8 @@ def mask_raster(raster, traits_dataset, masks_dataset):
 
 
 if __name__ == "__main__":
-    buffer_distance = 50000 # meters
-    resampling_factor = 8
+    buffer_distance = 100_000 # meters
+    resampling_factor = 1
     switzerland_boundary = get_CH_border()
     switzerland_buffer = switzerland_boundary.buffer(buffer_distance)
 

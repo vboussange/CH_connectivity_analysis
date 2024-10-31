@@ -42,6 +42,7 @@ trait_dataset = TraitsCH()
 sp_name = "Salmo trutta"
 
 D = pyconvert(Float64, trait_dataset.get_D(sp_name))
+# D = 1
 hab_qual = xr_dataarray_to_array(dataset[sp_name])
 
 # scaling
@@ -78,3 +79,11 @@ xr_sensitivities.values = reshape(sensitivities, (1, size(sensitivities)...))
 fig, ax = plt.subplots()
 xr_sensitivities.plot(ax=ax)
 fig
+
+dataset[sp_name*("dfunc_dqual")] = xr_sensitivities
+file_name = splitext(basename(@__FILE__))[1] * ".nc"
+output_path = mkdir(joinpath(@__DIR__, "data"))
+dataset.to_netcdf(joinpath(output_path, file_name), engine="netcdf4")
+
+
+dataset[sp_name*("dfunc_dqual")].plot(ax=ax)

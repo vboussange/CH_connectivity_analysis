@@ -10,6 +10,7 @@ const SWISS_BOUNDARY_FILE = joinpath(@__DIR__(), "../../data/swiss_boundaries/sw
 
 function load_xr_dataset(path)
     da = xr.open_dataset(path, engine="netcdf4", decode_coords="all")   
+    da.close()
     return da
 end
 

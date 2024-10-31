@@ -43,13 +43,13 @@ end
 # Silent grid creation
 
 function silent_Grid(nrows::Integer,
-                    ncols::Integer;
-                    affinities=nothing,
-                    qualities::Matrix=ones(nrows, ncols),
-                    source_qualities::Matrix=qualities,
-                    target_qualities::AbstractMatrix=qualities,
-                    costs::Union{ConScape.Transformation,SparseMatrixCSC{Float64,Int}}=ConScape.MinusLog(),
-                    prune=true)
+    ncols::Integer;
+    affinities=nothing,
+    qualities::Matrix=ones(nrows, ncols),
+    source_qualities::Matrix=qualities,
+    target_qualities::AbstractMatrix=qualities,
+    costs::Union{ConScape.Transformation,SparseMatrixCSC{Float64,Int}}=ConScape.MinusLog(),
+    prune=true)
 
     if affinities === nothing
         throw(ArgumentError("matrix of affinities must be supplied"))
@@ -386,12 +386,8 @@ function computation_performance_center(rast::Rasters.RasterStack, radius::Real,
 end
 
 # Core moving window computation
-function moving_window_conscape(rast::Rasters.RasterStack, 
-                                radius::Real,
-                                thetas_jobs::Vector{Dict{String,Any}}, 
-                                cntr_size::Integer=1, 
-                                cost_fun=nothing, 
-                                auto_parallel::Bool=true)
+function moving_window_conscape(rast::Rasters.RasterStack, radius::Real,
+    thetas_jobs::Vector{Dict{String,Any}}, cntr_size::Integer=1, cost_fun=nothing, auto_parallel::Bool=true)
 
     xcrds = collect(Rasters.lookup(rast, X))
     ycrds = collect(Rasters.lookup(rast, Y))
@@ -580,7 +576,6 @@ function _MatVec2Raster(MatVec::Vector{Any}, rast::Rasters.RasterStack, cntr, ra
 end
 
 function _RastVec2StackVec(RastVec::Vector{Any}, thetas_jobs::Vector{Dict{String,Any}})
-    # Not used
     StackVec = Any[]
     RastVec = tmp_res
 
