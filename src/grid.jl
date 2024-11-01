@@ -1,16 +1,17 @@
 using SparseArrays, LinearAlgebra
 using Graphs, SimpleWeightedGraphs, ProgressMeter
 
-struct Grid{R<:Real, A <:SparseMatrixCSC{R, Int}, VA <: AbstractMatrix{Bool}, SQ <: Matrix{R}, TQ <: AbstractMatrix{R}}
+struct Grid{R<:Real, A <:SparseMatrixCSC{R, Int}, CM, VA <: AbstractMatrix{Bool}, SQ <: Matrix{R}, TQ <: AbstractMatrix{R}}
     affinities::A
-    cost_matrix::A
+    cost_matrix::CM
     vertex_activities::VA
     source_qualities::SQ
     target_qualities::TQ
 end
 
-function Grid(habitat_suitability, affinity_matrix, prune=true)
-    # Custom calculation
+
+function Grid(habitat_suitability, affinity_matrix; C = x -> -log(x),  prune=true)
+    # when `prune==true`, we activate only vertices belonging to the largest component
     if prune
         active_vertices = largest_subgraph_vertices(affinity_matrix)
         activity_matrix = fill(false, size(habitat_suitability))
@@ -19,7 +20,6 @@ function Grid(habitat_suitability, affinity_matrix, prune=true)
         activity_matrix = fill(true, size(habitat_suitability))
     end
 
-    C = - ConScape.mapnz(log, affinity_matrix)
     grid = Grid(affinity_matrix,
                 C,
                 activity_matrix,
@@ -102,7 +102,7 @@ vertex_active_coord(g::Grid, i, j) = vertex_activities(g)[i, j]
 nb_active(g::Grid) = sum(vertex_activities(g))
 all_active(g::Grid) = nb_active(g) == length(vertex_activities(g))
 list_active_vertices(grid::Grid) = [v for v in vertices(grid) if vertex_active(grid, v)]
-
+active_vertices_coordinate(g::Grid) = [index_to_coord(g, v) for v in list_active_vertices(g)]
 
 function Base.show(io::IO, ::MIME"text/plain", g::Grid)
     print(io, "Grid of size ", height(g), "x", width(g))

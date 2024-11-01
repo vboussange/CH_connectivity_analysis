@@ -1,6 +1,4 @@
-#=
-Calculating euclidean distance with moving window based on Rasters.jl
-=#
+# Regression between ecological distance and euclidean distance
 
 cd(@__DIR__)
 using GridGraphs, Graphs
@@ -9,41 +7,30 @@ using ProgressMeter
 using DataFrames
 using JLD2
 using Printf
-using PythonPlot
 using Zygote
 using NCDatasets
 using Rasters
-using PythonCall
+using ConScape
+include(joinpath(@__DIR__, "../../src/utils.jl"))
 include(joinpath(@__DIR__, "../../src/TraitsCH.jl"))
+include(joinpath(@__DIR__, "../../src/grid.jl"))
+include(joinpath(@__DIR__, "../../src/rsp_distance.jl"))
+include(joinpath(@__DIR__, "../../src/euclid_distance.jl"))
 
 dataset_path = joinpath(@__DIR__, "../../../data/GUILDS_EU_SP/GUILDS_EU_SP_buffer_dist=100km_resampling_1.nc")
 
-function id_to_grid_coordinate_list(g::GridGraph)
-    [index_to_coord(g, v) for v in vertices(g) if vertex_active(g, v)]
-end
-
-function calculate_euclidean_distance(g::GridGraph, res)
-    coordinate_list = id_to_grid_coordinate_list(g)
-    euclidean_distance = [hypot(xy_i[1] - xy_j[1], xy_i[2] - xy_j[2]) for xy_i in coordinate_list, xy_j in coordinate_list]
-    return euclidean_distance * res
-end
-    
-
-function calculate_functional_habitat(q, K)
-    return sum(q .* (K * q))
-end
-
-function resolution(ras::Raster)
-    lon = lookup(ras, X) 
-    return lon[2] - lon[1]
-end
-
 sp_name = "Salmo trutta"
-data_array = Raster(dataset_path; name=sp_name) / 100
-traits = TraitsCH()
-# D = get_D(traits, sp_name)
-D = 1.
+habitat_suitability = Raster(dataset_path; name=sp_name) / 100
+habitat_suitability = replace_missing(habitat_suitability, 0.)
 res = resolution(data_array) / 1000 #km
+
+# only calculating for small window
+
+
+affinity_matrix = ConScape.graph_matrix_from_raster(Matrix(habitat_suitability))
+g = Grid(habitat_suitability, affinity_matrix)
+euclidean_distance = calculate_euclidean_distance(g, res)
+
 
 # width and height of window center
 window_size = 40
