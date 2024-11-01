@@ -1,4 +1,56 @@
-function ecological_distance(grid)
+using SparseArrays
+using LinearAlgebra
+function ecological_distance(A, θ)
+    C = map(x -> ifelse(x > 0, -log(x), zero(eltype(A))), A)
+    Pref = _Pref(A)
+    W = _W(Pref, θ, C)
+
+    Z = inv(Matrix(I - W))
+    C̄ = Z * ((C .* W)*Z)
+
+    C̄ = C̄ ./ Z
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    # C̄ = replace(C̄, NaN => Inf)
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
+end
+
+function ecological_distance_sparse(A, θ, active_vertices)
+    C = mapnz(A, x->-log(x))
+    Pref = _Pref(A)
+    W = _W(Pref, θ, C)
+    b = Matrix(sparse(active_vertices, active_vertices, one(eltype(A)), size(A)...))
+    Z = sparse((I - W) \ b)
+    C̄ = Z * ((C .* W)*Z)
+
+    is, js, Zv = findnz(Z)
+    _, _, C̄v = findnz(C̄)
+
+    C̄ = sparse(is, js, C̄v ./ Zv, size(A)...)
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    # C̄ = replace(C̄, NaN => Inf)
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
+end
+
+function ecological_distance(A, θ, active_vertices)
+    C = mapnz(A, x->-log(x))
+    Pref = _Pref(A)
+    W = _W(Pref, θ, C)
+    b = Matrix(sparse(active_vertices, active_vertices, one(eltype(A)), size(A)...))
+    Z = (I - W) \ b
+    C̄ = Z * ((C .* W)*Z)
+
+    C̄ = C̄ ./ (Z .+ eps(eltype(Z)))
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
+end
+
+function ecological_distance(grid::Grid)
     active_vertices = list_active_vertices(grid)
     A = affinities(grid)
     C = cost_matrix(grid)
@@ -23,19 +75,19 @@ function calculate_functional_habitat(q, K)
     return sum(q .* (K * q))
 end
 
-_Pref(A::SparseMatrixCSC) = Diagonal(inv.(vec(sum(A, dims=2)))) * A
+_Pref(A) = Diagonal(inv.(vec(sum(A, dims=2)))) * A
 
-function _W(Pref::SparseMatrixCSC, θ::Real, C::SparseMatrixCSC)
+function _W(Pref, θ, C)
 
-    n = LinearAlgebra.checksquare(Pref)
-    if LinearAlgebra.checksquare(C) != n
-        throw(DimensionMismatch("Pref and C must have same size"))
-    end
-
-    W = Pref .* exp.((-).(θ) .* C)
-    replace!(W.nzval, NaN => 0.0)
+    W = Pref .* exp.(- θ .* C)
+    # replace!(W.nzval, NaN => 0.0)
 
     return W
+end
+
+function mapnz(mat::M, f) where M <: SparseMatrixCSC
+    I, J, V = findnz(mat)
+    return sparse(I, J, f.(V), size(mat)...)
 end
 
 
