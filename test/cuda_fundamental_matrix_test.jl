@@ -29,6 +29,7 @@ function fundamental_matrix_gpu(W, targetnodes)
     Z = A \ CuArray(Matrix(sparse(targetnodes, 1:length(targetnodes), one(eltype(W)), size(W, 1), length(targetnodes))))
     return Z
 end
+fundamental_matrix_gpu(Wcu, targetnodes)
 
 @btime fundamental_matrix_gpu($Wcu, $targetnodes)
 # 1.318 ms (233 allocations: 652.25 KiB)

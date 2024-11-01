@@ -10,6 +10,8 @@ using Zygote
 using NCDatasets
 using Rasters
 using ConScape
+using CUDA, CUDA.CUSPARSE
+using StatsBase # sample
 include(joinpath(@__DIR__, "../../src/utils.jl"))
 include(joinpath(@__DIR__, "../../src/TraitsCH.jl"))
 include(joinpath(@__DIR__, "../../src/grid.jl"))
@@ -21,62 +23,41 @@ dataset_path = joinpath(@__DIR__, "../../../data/compiled/GUILDS_EU_SP_buffer_di
 sp_name = "Salmo trutta"
 habitat_suitability = Raster(dataset_path; name=sp_name) / 100
 habitat_suitability = replace_missing(habitat_suitability, 0.)
-res = resolution(data_array) / 1000 #km
+res = resolution(habitat_suitability) / 1000 #km
+
+
+# cropping for accelerating calcluations
+raster_center = floor.(Int, size(habitat_suitability) ./ 2)
+window_size = 100
+myrange = -window_size÷2:window_size÷2
+habitat_suitability = habitat_suitability[raster_center[1] .+ myrange, raster_center[2] .+ myrange]
 
 # only calculating for small window
 
-
 affinity_matrix = ConScape.graph_matrix_from_raster(Matrix(habitat_suitability))
-g = Grid(habitat_suitability, affinity_matrix)
-euclidean_distance = calculate_euclidean_distance(g, res)
+
+# standard calculation
+grid = Grid(habitat_suitability, affinity_matrix)
 
 
-# width and height of window center
-window_size = 40
-buffer_size = ceil(Int, 3 * D / res)
-step_size = window_size  # Step size for non-overlapping core windows
-cut_off = 0.1
 
-# calculate rolling window
-total_window_size = window_size + 2 * buffer_size
+# Euclidean distance calculation
+# @time euclidean_dist = calculate_euclidean_distance(grid, res); # 0.340271 seconds (15 allocations: 305.755 MiB, 6.88% gc time)
+@time euclidean_dist = calculate_euclidean_distance_gpu(grid, res); # 0.019106 seconds (497 allocations: 309.656 KiB)
 
-# Number of steps (how many non-overlapping windows can be extracted)
-width_raster = size(data_array, 1)
-height_raster = size(data_array, 2)
-x_steps = (width_raster - buffer_size * 2) ÷ window_size
-y_steps = (height_raster - buffer_size * 2) ÷ window_size
+θ = 0.01
+# @time rsp_dist = rsp_distance(grid, θ); #  2.062014 seconds (107 allocations: 617.737 MiB, 5.38% gc time)
+@time rsp_dist = rsp_distance_gpu(grid, θ); # 0.531023 seconds (4.96 k allocations: 1.220 MiB, 0.00% compilation time)
 
-output_array = copy(data_array)
-output_array .= NaN
-# output_array = fill(NaN, width_raster, height_raster)
-# Now we iterate over the buffered windows
-for i in 1:(x_steps-1)
-    for j in 1:(y_steps-1)
-        x_start = i * step_size
-        y_start = j * step_size
-        # Extract the buffered window from the raw dataset
-        hab_qual = replace_missing(data_array[x_start:(x_start+total_window_size),
-                                    y_start:(y_start + total_window_size)], NaN)
+α =euclidean_dist[:] \ rsp_dist[:]
 
-        if !all(isnan.(hab_qual)) && any(hab_qual .> cut_off)
-            g = GridGraph(hab_qual; vertex_activities = hab_qual .> cut_off)
-            euclidean_distance = calculate_euclidean_distance(g, res)
-
-            # calculate proximity
-            K = exp.(-euclidean_distance / D)
-
-            q = [hab_qual[ij...] for ij in id_to_grid_coordinate_list(g)]
-
-            # TODO: this could be simplified by not calculating for buffered values
-            sensitivities_vec = gradient(q -> calculate_functional_habitat(q, K), q)[1]
-            sensitivities = fill(NaN, height(g), width(g))
-            [sensitivities[ij...] = sensitivities_vec[v] for (v, ij) in enumerate(id_to_grid_coordinate_list(g))]
-
-            range = buffer_size:(buffer_size+window_size)
-            output_array[x_start .+ range, y_start .+ range] = sensitivities[range, range]
-        end
-    end
-end
 
 using Plots
-Plots.plot(output_array)
+rsp_dist = Array(rsp_dist)
+euclidean_dist = Array(euclidean_dist)
+rnd_idx = sample(1:length(euclidean_dist), 1000)
+scatter(euclidean_dist[rnd_idx], rsp_dist[rnd_idx])
+# Line of best fit
+x_range = range(minimum(euclidean_dist), maximum(euclidean_dist), length=100)
+plot!(x_range, α .* x_range, color=:red)
+print("α: ", α)

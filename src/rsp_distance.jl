@@ -1,6 +1,6 @@
 using SparseArrays
 using LinearAlgebra
-function ecological_distance(A, θ)
+function rsp_distance(A, θ)
     C = map(x -> ifelse(x > 0, -log(x), zero(eltype(A))), A)
     Pref = _Pref(A)
     W = _W(Pref, θ, C)
@@ -16,7 +16,25 @@ function ecological_distance(A, θ)
     return C̄
 end
 
-function ecological_distance_sparse(A, θ, active_vertices)
+function rsp_distance_gpu(A, θ)
+    C = mapnz(A, x->-log(x))
+    Pref = _Pref(A)
+    W = _W(Pref, θ, C)
+
+    W = CuArray(_W(Pref, θ, C))
+
+    Z = inv(I - W)
+    C̄ = Z * ((C .* W)*Z)
+
+    C̄ = C̄ ./ Z
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    C̄ .= ifelse.(isnan.(C̄), Inf, C̄)
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
+end
+
+function rsp_distance_sparse(A, θ, active_vertices)
     C = mapnz(A, x->-log(x))
     Pref = _Pref(A)
     W = _W(Pref, θ, C)
@@ -35,7 +53,7 @@ function ecological_distance_sparse(A, θ, active_vertices)
     return C̄
 end
 
-function ecological_distance(A, θ, active_vertices)
+function rsp_distance(A, θ, active_vertices)
     C = mapnz(A, x->-log(x))
     Pref = _Pref(A)
     W = _W(Pref, θ, C)
@@ -50,25 +68,58 @@ function ecological_distance(A, θ, active_vertices)
     return C̄
 end
 
-function ecological_distance(grid::Grid)
+function rsp_distance_gpu(A, θ, active_vertices)
+    C = mapnz(A, x->-log(x))
+    Pref = _Pref(A)
+    W = CuArray(_W(Pref, θ, C))
+    b = CuArray(sparse(active_vertices, active_vertices, one(eltype(A)), size(A)...))
+    Z = (I - W) \ b
+    C̄ = Z * ((C .* W)*Z)
+
+    C̄ = C̄ ./ (Z .+ eps(eltype(Z)))
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
+end
+
+function rsp_distance(grid::Grid, θ)
     active_vertices = list_active_vertices(grid)
-    A = affinities(grid)
-    C = cost_matrix(grid)
+    A = affinities(grid)[active_vertices, active_vertices]
+    C = mapnz(A, x->-log(x))
     Pref = _Pref(A)
     W = _W(Pref, θ, C)
 
-    W_pruned = W[active_vertices, active_vertices]
-    C_pruned = C[active_vertices, active_vertices]
+    Z = inv(Matrix(I - W))
+    C̄ = Z * ((C .* W)*Z)
 
-    Z_pruned = inv(Matrix(I - W_pruned))
-    C̄_pruned = Z_pruned * ((C_pruned .* W_pruned)*Z_pruned)
-
-    C̄_pruned ./= Z_pruned
+    C̄ ./= Z
     # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
-    replace!(C̄_pruned, NaN => Inf)
-    dˢ  = diag(C̄_pruned)
-    C̄_pruned .-= dˢ'
-    return C̄_pruned
+    C̄ .= ifelse.(isnan.(C̄), Inf, C̄)
+    dˢ = diag(C̄)
+    C̄ .-= dˢ'
+    return C̄
+end
+
+function rsp_distance_gpu(grid::Grid, θ)
+    active_vertices = list_active_vertices(grid)
+    A = affinities(grid)[active_vertices, 
+                        active_vertices]
+    A = CuSparseMatrixCSC{Float32}(A)
+    
+    C = mapnz(A, x->-log(x))
+    Pref = _Pref(A)
+    W = CuArray(_W(Pref, θ, C))
+
+    Z = inv(I - W)
+    C̄ = Z * ((C .* W)*Z)
+
+    C̄ = C̄ ./ Z
+    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
+    C̄ .= ifelse.(isnan.(C̄), Inf, C̄)
+    dˢ  = diag(C̄)
+    C̄ = C̄ .- dˢ'
+    return C̄
 end
 
 function calculate_functional_habitat(q, K)
@@ -85,7 +136,7 @@ function _W(Pref, θ, C)
     return W
 end
 
-function mapnz(mat::M, f) where M <: SparseMatrixCSC
+function mapnz(mat::M, f) where M <: AbstractSparseMatrix
     I, J, V = findnz(mat)
     return sparse(I, J, f.(V), size(mat)...)
 end
