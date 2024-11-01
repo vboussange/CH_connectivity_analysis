@@ -1,6 +1,6 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.5"
+julia_version = "1.10.6"
 manifest_format = "2.0"
 project_hash = "c969fb20f1f81e687bb801bf1a056c22ca6dd8ba"
 
@@ -304,7 +304,9 @@ weakdeps = ["InverseFunctions"]
 
 [[deps.ConScape]]
 deps = ["ArnoldiMethod", "DelimitedFiles", "Graphs", "LaTeXStrings", "LinearAlgebra", "LinearSolve", "Plots", "ProgressMeter", "SimpleWeightedGraphs", "SparseArrays", "Test"]
-path = "/Users/victorboussange/projects/connectivity/ConScape.jl"
+git-tree-sha1 = "39fe1c9737f82dd337d4eaba00d7adb7360e9403"
+repo-rev = "main"
+repo-url = "https://github.com/vboussange/ConScape.jl.git"
 uuid = "2ba2d6f2-f651-5162-bda8-601e45ce5244"
 version = "0.2.4"
 
@@ -1994,9 +1996,9 @@ version = "0.2.0"
 
 [[deps.VectorizationBase]]
 deps = ["ArrayInterface", "CPUSummary", "HostCPUFeatures", "IfElse", "LayoutPointers", "Libdl", "LinearAlgebra", "SIMDTypes", "Static", "StaticArrayInterface"]
-git-tree-sha1 = "e7f5b81c65eb858bed630fe006837b935518aca5"
+git-tree-sha1 = "4ab62a49f1d8d9548a1c8d1a75e5f55cf196f64e"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
-version = "0.21.70"
+version = "0.21.71"
 
 [[deps.VersionParsing]]
 git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"

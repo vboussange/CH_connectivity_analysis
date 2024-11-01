@@ -5,7 +5,6 @@ using GridGraphs, Graphs
 using SparseArrays, DataFrames, CSV
 using ProgressMeter
 using DataFrames
-using JLD2
 using Printf
 using Zygote
 using NCDatasets
@@ -17,7 +16,7 @@ include(joinpath(@__DIR__, "../../src/grid.jl"))
 include(joinpath(@__DIR__, "../../src/rsp_distance.jl"))
 include(joinpath(@__DIR__, "../../src/euclid_distance.jl"))
 
-dataset_path = joinpath(@__DIR__, "../../../data/GUILDS_EU_SP/GUILDS_EU_SP_buffer_dist=100km_resampling_1.nc")
+dataset_path = joinpath(@__DIR__, "../../../data/compiled/GUILDS_EU_SP_buffer_dist=100km_resampling_1.nc")
 
 sp_name = "Salmo trutta"
 habitat_suitability = Raster(dataset_path; name=sp_name) / 100
