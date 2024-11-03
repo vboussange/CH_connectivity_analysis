@@ -49,7 +49,7 @@ grid = Grid(habitat_suitability, affinity_matrix)
 # @time rsp_dist = rsp_distance(grid, θ); #  2.062014 seconds (107 allocations: 617.737 MiB, 5.38% gc time)
 @time rsp_dist = rsp_distance_gpu(grid, θ); # 0.531023 seconds (4.96 k allocations: 1.220 MiB, 0.00% compilation time)
 
-α =euclidean_dist[:] \ rsp_dist[:]
+α = euclidean_dist[:] \ rsp_dist[:]
 
 
 using Plots

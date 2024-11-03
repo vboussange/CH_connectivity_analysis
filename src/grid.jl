@@ -170,7 +170,7 @@ function largest_subgraph_vertices(affinity_matrix)
     # Find the subgraphs
     scc = strongly_connected_components(graph)
 
-    @info "cost graph contains $(length(scc)) strongly connected subgraphs"
+    @debug "cost graph contains $(length(scc)) strongly connected subgraphs"
 
     # Find the largest subgraph
     i = argmax(length.(scc))
@@ -180,7 +180,7 @@ function largest_subgraph_vertices(affinity_matrix)
 
     ndiffnodes = size(affinity_matrix, 1) - length(scci)
     if ndiffnodes > 0
-        @info "removing $ndiffnodes nodes from affinity and cost graphs"
+        @debug "removing $ndiffnodes nodes from affinity and cost graphs"
     end
     # largest_subgraph_affinity_matrix = spzeros(size(affinity_matrix))
     # Extract the adjacency matrix of the largest subgraph

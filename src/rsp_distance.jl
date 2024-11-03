@@ -1,39 +1,33 @@
 using SparseArrays
 using LinearAlgebra
-function rsp_distance(A, θ)
-    C = map(x -> ifelse(x > 0, -log(x), zero(eltype(A))), A)
-    Pref = _Pref(A)
-    W = _W(Pref, θ, C)
 
-    Z = inv(Matrix(I - W))
+
+function dense(sp_mat::M) where M <: AbstractSparseMatrix
+    if M <: AbstractCuSparseArray
+        return CuArray(sp_mat)
+    else
+        return Array(sp_mat)
+    end
+end
+
+function rsp_distance(A::M, θ) where M <: AbstractSparseMatrix
+    C = mapnz(A, x -> -log(x)) # cost matrix
+    Prw = Diagonal(inv.(vec(sum(A, dims=2)))) * A # random walk probability
+    W = Prw .* exp.(- θ .* C)
+    Z = fundamental_matrix(dense(W))
+
     C̄ = Z * ((C .* W)*Z)
-
+    
     C̄ = C̄ ./ Z
-    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
-    # C̄ = replace(C̄, NaN => Inf)
-    dˢ  = diag(C̄)
+
+    C̄ = C̄ ./ (Z .+ eps(eltype(Z)))
+
+    dˢ = diag(C̄)
     C̄ = C̄ .- dˢ'
     return C̄
 end
 
-function rsp_distance_gpu(A, θ)
-    C = mapnz(A, x->-log(x))
-    Pref = _Pref(A)
-    W = _W(Pref, θ, C)
-
-    W = CuArray(_W(Pref, θ, C))
-
-    Z = inv(I - W)
-    C̄ = Z * ((C .* W)*Z)
-
-    C̄ = C̄ ./ Z
-    # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
-    C̄ .= ifelse.(isnan.(C̄), Inf, C̄)
-    dˢ  = diag(C̄)
-    C̄ = C̄ .- dˢ'
-    return C̄
-end
-
+# here we do not prune the graph, but calculate RSP for `active_vertices`
 function rsp_distance_sparse(A, θ, active_vertices)
     C = mapnz(A, x->-log(x))
     Pref = _Pref(A)
@@ -106,7 +100,7 @@ function rsp_distance_gpu(grid::Grid, θ)
     A = affinities(grid)[active_vertices, 
                         active_vertices]
     A = CuSparseMatrixCSC{Float32}(A)
-    
+
     C = mapnz(A, x->-log(x))
     Pref = _Pref(A)
     W = CuArray(_W(Pref, θ, C))
@@ -117,7 +111,7 @@ function rsp_distance_gpu(grid::Grid, θ)
     C̄ = C̄ ./ Z
     # Zeros in Z can cause NaNs in C̄ ./= Z computation but the limit
     C̄ .= ifelse.(isnan.(C̄), Inf, C̄)
-    dˢ  = diag(C̄)
+    dˢ = diag(C̄)
     C̄ = C̄ .- dˢ'
     return C̄
 end
@@ -165,4 +159,35 @@ function connected_habitat(grsp, S::Matrix; diagvalue::Union{Nothing,Real}=nothi
     end
 
     return func
+end
+
+
+
+# TODO: you probably want to implement this only starting from a grid
+# You need to backtest it with ConScape
+function RSP_betweenness_kweighted(W::SparseMatrixCSC,
+    Z::CuSparseMatrixCSR,  # Fundamental matrix of non-absorbing paths
+    qˢ::CuArray, # Source qualities
+    qᵗ::CuArray, # Target qualities
+    S::CuArray,  # Matrix of proximities
+    )
+
+    Z_inv = @. ifelse(isfinite(Z), inv(Z), floatmax(eltype(Z)))
+    Zⁱ[.!isfinite.(Zⁱ)] .= floatmax(eltype(Z)) # To prevent Inf*0 later...
+
+    KZⁱ = qˢ .* S .* qᵗ'
+
+    # If any of the values of KZⁱ is above one then there is a risk of overflow.
+    # Hence, we scale the matrix and apply the scale factor by the end of the
+    # computation.
+    λ = max(1.0, maximum(KZⁱ))
+    k = vec(sum(KZⁱ, dims=1)) * inv(λ)
+
+    KZⁱ .*= inv.(λ) .* Zⁱ
+    diag(KZⁱ) -= k .* diag(Zⁱ)
+
+    ZKZⁱt = (I - W)'\KZⁱ
+    ZKZⁱt .*= λ .* Z
+
+    return vec(sum(ZKZⁱt, dims=2)) # diag(Z * KZⁱ')
 end
