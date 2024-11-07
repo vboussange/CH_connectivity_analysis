@@ -1,5 +1,7 @@
 .CondaPkg
+.env
 *.jld2
 *.png
 *.pyc
+*.nc
 Manifest.toml

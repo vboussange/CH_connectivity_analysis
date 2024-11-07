@@ -4,26 +4,33 @@ using Plots
 using Test
 using DifferentiationInterface
 using BenchmarkTools
+using DelimitedFiles
 include("../src/grid.jl")
 include("../src/rsp_distance.jl")
 
-
+function get_canvas(g::ConScape.Grid, values)
+    canvas = fill(NaN, g.nrows, g.ncols)
+    for (i,v) in enumerate(values)
+        canvas[g.id_to_grid_coordinate_list[i]] = v
+    end
+    return canvas
+end
 
 dataset_path = joinpath(@__DIR__, "habitat_suitability.nc")
 
 sp_name = "Salmo trutta"
 habitat_suitability = Raster(dataset_path; name=sp_name) / 100
-habitat_suitability = replace_missing(habitat_suitability, 0.)
+habitat_suitability = replace_missing(habitat_suitability, 0.) |> Matrix
 plot(habitat_suitability)
 
 θ = 0.01
 
 ## CONSCAPE ecological distance calculation
-affinity_matrix = ConScape.graph_matrix_from_raster(Matrix(habitat_suitability))
+affinity_matrix = ConScape.graph_matrix_from_raster(habitat_suitability, neighbors=ConScape.N4)
 
 grid = ConScape.Grid(size(habitat_suitability)...,
                         affinities=affinity_matrix,
-                        source_qualities=Matrix(habitat_suitability),
+                        source_qualities=habitat_suitability,
                         target_qualities=sparse(habitat_suitability),
                         costs=ConScape.mapnz(x -> -log(x), affinity_matrix))
 
@@ -31,17 +38,30 @@ dist_conscape = @btime begin
     grsp = ConScape.GridRSP(grid; θ)
     ConScape.expected_cost(grsp)
 end # 4.250 ms (602 allocations: 6.74 MiB)
+vertex = 5
+coord = grid.id_to_grid_coordinate_list[vertex]
+dist_to_vertex = get_canvas(grid, dist_conscape[:, 5])
+writedlm("habitat_suitability.csv", habitat_suitability, ',')
+writedlm("conscape_rsp_distance_to_i=$(coord[1])_j=$(coord[2]).csv", dist_to_vertex, ',')
 
-## ./src ecological distance calculation
-grid = Grid(habitat_suitability, affinity_matrix)
-dist = @btime ecological_distance(grid) # 2.967 ms (72 allocations: 5.19 MiB)
-@test all(dist .≈ dist_conscape)
+# ## ./src ecological distance calculation
+# dist = @btime rsp_distance(grid, θ) # 2.967 ms (72 allocations: 5.19 MiB)
+# @test all(dist .≈ dist_conscape)
 
 ## ./src ecological distance calculation from affinity
+grid = Grid(habitat_suitability, affinity_matrix)
 active_vertices = list_active_vertices(grid)
 A_pruned = affinity_matrix[active_vertices, 
                             active_vertices]
-dist_2 = @btime ecological_distance(A_pruned, θ) # 2.825 ms (54 allocations: 7.30 MiB)
+writedlm("$(sp_name)_conscape_affinity_matrix.csv", A_pruned, ',')
+dist_2 = @btime rsp_distance(A_pruned, θ) # 2.825 ms (54 allocations: 7.30 MiB)
+@test all(dist_2 .≈ dist_conscape)
+sum(dist_2)
+
+active_vertices = list_active_vertices(grid)
+A_pruned = affinity_matrix[active_vertices, 
+                            active_vertices] .|> Float32
+dist_2 = @btime rsp_distance(A_pruned, θ) # 2.825 ms (54 allocations: 7.30 MiB)
 @test all(dist_2 .≈ dist_conscape)
 sum(dist_2)
 
