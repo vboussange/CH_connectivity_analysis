@@ -3,6 +3,9 @@ Cropping habitat suitability rasters with a buffer around CH, and upsampling.
 Saving all guilds in an xarrray dataset within a netcdf.
 
 # TODO: you may consider for aquatic bodies to use connection points
+
+Here we crop habitat suitability with canton border to generate a MWE.
+
 """
 
 import geopandas as gpd
