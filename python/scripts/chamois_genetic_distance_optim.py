@@ -105,7 +105,7 @@ if __name__ == "__main__":
     
     
     # RSP distance calculation
-    theta = jnp.array(0.05)
+    theta = jnp.array(0.09)
     distance = RSPDistance(theta=theta)
     RSPdist_mat = distance(gridgraph)
     # plotting 
@@ -121,15 +121,15 @@ if __name__ == "__main__":
     gridgraph = GridGraph(activities = activities, 
                         vertex_weights = habitat_quality)
     distance = ResistanceDistance()
-    resistance_dist_mat = distance(gridgraph)
+    RSPdist_mat = distance(gridgraph)
     # plotting 
     vertex_index = gridgraph.coord_to_active_vertex_index(10, 18)
-    dist_to_vertex = gridgraph.node_values_to_array(resistance_dist_mat[:, vertex_index])
+    dist_to_vertex = gridgraph.node_values_to_array(RSPdist_mat[:, vertex_index])
     plt.imshow(dist_to_vertex)
     
     resistance_rastergraph = RasterGraph(ExplicitGridGraph(activities, 
                                            habitat_quality,
-                                           adjacency_matrix=resistance_dist_mat), raster.x.data, raster.y.data)
+                                           adjacency_matrix=RSPdist_mat), raster.x.data, raster.y.data)
     
     
     # extracting lat long from genetic data 
@@ -172,11 +172,11 @@ if __name__ == "__main__":
     plt.figure(figsize=(8, 6))
     plot_with_regression(RSP_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="RSP Distance", ylabel="Genetic Distance", title="")
 
-    plt.figure(figsize=(8, 6))
-    plot_with_regression(euclid_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Euclidean Distance", ylabel="Genetic Distance", title="")
+    # plt.figure(figsize=(8, 6))
+    # plot_with_regression(euclid_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Euclidean Distance", ylabel="Genetic Distance", title="")
 
-    plt.figure(figsize=(8, 6))
-    plot_with_regression(resistance_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Resistance Distance", ylabel="Genetic Distance", title="")
+    # plt.figure(figsize=(8, 6))
+    # plot_with_regression(resistance_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Resistance Distance", ylabel="Genetic Distance", title="")
 
     # plt.figure(figsize=(8, 6))
     # plot_with_regression(resistance_dist_mat_ind[mask], euclid_dist_mat_ind[mask], xlabel="Resistance Distance", ylabel="Euclidean Distance", title="")

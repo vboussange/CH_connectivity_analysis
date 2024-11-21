@@ -1,11 +1,11 @@
+# NOTE: This script is best implemented in jaxscape/benchmark
 import jax
 import jax.numpy as jnp
 from jax import jit, grad
 import numpy as np  # for NaN handling, not used in heavy computations
 import matplotlib.pyplot as plt
-from connectax.gridgraph import GridGraph
-from connectax.utils import BCOO_to_sparse, get_largest_component_label
-from connectax.landscape import Landscape
+from jaxscape.gridgraph import GridGraph, ExplicitGridGraph
+from jaxscape.utils import BCOO_to_sparse, get_largest_component_label
 import jax
 from jax.experimental.sparse import BCOO
 from tqdm import tqdm
@@ -13,13 +13,12 @@ from scipy.sparse.csgraph import connected_components
 from scipy.sparse import csr_matrix      
 import jax.numpy as jnp
 from jax import grad
-from math import ceil
 import matplotlib.pyplot as plt
-from connectax.moving_window import WindowOperation, run_analysis
+from jaxscape.moving_window import WindowOperation
 import xarray as xr
 from pathlib import Path
-from connectax.euclidean_distance import EuclideanDistance
-from connectax.rsp_distance import RSPDistance
+from jaxscape.euclidean_distance import EuclideanDistance
+from jaxscape.rsp_distance import RSPDistance
 
 def calculate_resolution(raster):
     lat_resolution = abs(raster.y.diff(dim='y').mean().values)
@@ -38,7 +37,7 @@ def get_valid_activities(hab_qual, activities):
     activities_pruned = activities_pruned == True
     return activities_pruned
 
-def run_sensitivity_analysis(habitat_quality_raster, window_op, D, distance, cut_off):
+def run_sensitivity_analysis(habitat_quality_raster, window_op, D, distance):
     """Performs the sensitivity analysis on each valid window.
     `D` must be expressed in the unit of habitat quality in `window_op`.
     """
@@ -49,21 +48,21 @@ def run_sensitivity_analysis(habitat_quality_raster, window_op, D, distance, cut
         valid_activities = get_valid_activities(hab_qual, activities)
 
         # TODO: we should jit the whole block below instead of jitting at each iteration
-        def connectivity(hab_qual):
-            # TODO: need to iterate through the connected components
-            # for now, we only take the largest component, but we could build a loop here
-            gridgraph = GridGraph(activities=valid_activities, 
-                                    vertex_weights=hab_qual)
-            dist = distance.get_distance_matrix(gridgraph)
-            proximity = BCOO.fromdense(jnp.exp(-dist / D) > 0.)
-            landscape = Landscape(hab_qual, proximity, valid_activities)
-            func = landscape.functional_habitat()
-            return func
-    
-        grad_connectivity = grad(connectivity)
-        sensitivity_raster_window = grad_connectivity(hab_qual)
+        def calculate_ech(habitat_quality):
+            grid = GridGraph(activities=activities, vertex_weights=habitat_quality)
+            dist = distance(grid)
+            # scaling
+            dist = dist / dist.max()
+            proximity = jnp.exp(-dist / D)
+            landscape = ExplicitGridGraph(activities=activities, 
+                                        vertex_weights=habitat_quality, 
+                                        adjacency_matrix=proximity)
+            ech = landscape.equivalent_connected_habitat()
+            return ech
+        grad_ech = jax.jit(jax.grad(calculate_ech))
+        sensitivities = grad_ech(habitat_suitability)
 
-        window_op.update_raster_from_window(x_start, y_start, sensitivity_raster, sensitivity_raster_window)
+        window_op.update_raster_from_window(x_start, y_start, sensitivity_raster, sensitivities)
 
     return sensitivity_raster
 
@@ -80,11 +79,9 @@ def load_habitat_suitability(sp_name, path_ncfile = Path("data/large_extent_habi
 if __name__ == "__main__":
 
     sp_name = "Salmo trutta"
-    D_km = traits.get_D(sp_name)
+    D_km = 1.0 #traits.get_D(sp_name)
     
-    
-    params_computation = {"window_size": 100, 
-                          "cut_off":  0.1}
+    params_computation = {"window_size": 1.}
     alpha = jnp.array(21.)
     habitat_suitability, res = load_habitat_suitability(sp_name)
     D = D_km / alpha
