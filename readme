@@ -1,0 +1,9 @@
+# Connectivity analysis for Switzerland
+
+
+### Python environment
+To activate environment, make sure you have conda (or mamba), go to python/ and
+
+```
+mamba env create --file environment.yml --prefix ./.env
+```

@@ -1,9 +1,11 @@
+name:
+  connectivity-analysis-env
 channels:
   - conda-forge
 dependencies:
   - geopandas
   - ipykernel
-  - matplotlib >= 1
+  - matplotlib>=1
   - netcdf4
   - pathlib
   - pyreadr
@@ -11,13 +13,14 @@ dependencies:
   - rioxarray
   - shapely
   - xarray
-  - jax
   - ca-certificates
   - certifi
   - openssl
   - tqdm
   - pytest
-  - lineax
   - seaborn
-prefix: 
-  ./.env
+  - pip:
+    - jax[cuda12]
+    - lineax
+    - equinox
+    - -e ./../../jaxscape/
