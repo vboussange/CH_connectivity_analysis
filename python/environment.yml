@@ -1,0 +1,23 @@
+channels:
+  - conda-forge
+dependencies:
+  - geopandas
+  - ipykernel
+  - matplotlib >= 1
+  - netcdf4
+  - pathlib
+  - pyreadr
+  - python=3.12
+  - rioxarray
+  - shapely
+  - xarray
+  - jax
+  - ca-certificates
+  - certifi
+  - openssl
+  - tqdm
+  - pytest
+  - lineax
+  - seaborn
+prefix: 
+  ./.env
