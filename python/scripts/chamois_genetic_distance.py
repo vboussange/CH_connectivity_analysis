@@ -1,6 +1,5 @@
 """
-Computing genetic vs ecological vs euclidean distance.
-This script need to be checked.
+Computing genetic vs ecological distance.
 """
 
 import pyreadr
@@ -14,6 +13,7 @@ import pandas as pd
 import numpy as np
 from jaxscape.gridgraph import GridGraph, QUEEN_CONTIGUITY, ExplicitGridGraph
 from jaxscape.euclidean_distance import EuclideanDistance
+from jaxscape.lcp_distance import LCPDistance
 from jaxscape.rsp_distance import RSPDistance
 from jaxscape.resistance_distance import ResistanceDistance
 from jaxscape.rastergraph import RasterGraph
@@ -103,13 +103,11 @@ if __name__ == "__main__":
                                            habitat_quality,
                                            adjacency_matrix=eucliddist_mat), raster.x.data, raster.y.data)
     
-    
     # RSP distance calculation
-    theta = jnp.array(0.05)
+    theta = jnp.array(0.09)
     distance = RSPDistance(theta=theta)
     RSPdist_mat = distance(gridgraph)
     # plotting 
-    vertex_index = gridgraph.coord_to_active_vertex_index(10, 18)
     dist_to_vertex = gridgraph.node_values_to_array(RSPdist_mat[:, vertex_index])
     plt.imshow(dist_to_vertex)
     
@@ -118,18 +116,27 @@ if __name__ == "__main__":
                                            adjacency_matrix=RSPdist_mat), raster.x.data, raster.y.data)
     
     # resistance distance calculation
-    gridgraph = GridGraph(activities = activities, 
-                        vertex_weights = habitat_quality)
     distance = ResistanceDistance()
-    resistance_dist_mat = distance(gridgraph)
+    RSPdist_mat = distance(gridgraph)
     # plotting 
-    vertex_index = gridgraph.coord_to_active_vertex_index(10, 18)
-    dist_to_vertex = gridgraph.node_values_to_array(resistance_dist_mat[:, vertex_index])
+    dist_to_vertex = gridgraph.node_values_to_array(RSPdist_mat[:, vertex_index])
     plt.imshow(dist_to_vertex)
     
     resistance_rastergraph = RasterGraph(ExplicitGridGraph(activities, 
                                            habitat_quality,
-                                           adjacency_matrix=resistance_dist_mat), raster.x.data, raster.y.data)
+                                           adjacency_matrix=RSPdist_mat), raster.x.data, raster.y.data)
+    
+    # LCP  distance calculation
+    distance = LCPDistance()
+    LCPdist_mat = distance(gridgraph)
+    # plotting 
+    dist_to_vertex = gridgraph.node_values_to_array(LCPdist_mat[:, vertex_index])
+    plt.imshow(dist_to_vertex)
+    
+    lcp_rastergraph = RasterGraph(ExplicitGridGraph(activities, 
+                                           habitat_quality,
+                                           adjacency_matrix=LCPdist_mat), raster.x.data, raster.y.data)
+    
     
     
     # extracting lat long from genetic data 
@@ -144,6 +151,7 @@ if __name__ == "__main__":
     RSP_dist_mat_ind = RSPrastergraph.get_distance(loc_active_individuals)
     euclid_dist_mat_ind = eucliderastergraph.get_distance(loc_active_individuals)
     resistance_dist_mat_ind = resistance_rastergraph.get_distance(loc_active_individuals)
+    LCP_dist_mat_ind = lcp_rastergraph.get_distance(loc_active_individuals)
     gen_mat_ind = gend.loc[gdf.Sample_ID[np.array(active_individuals)], gdf.Sample_ID[np.array(active_individuals)]].to_numpy()
     
     mask = ~np.eye(gen_mat_ind.shape[0], dtype=bool)
@@ -175,8 +183,12 @@ if __name__ == "__main__":
     plt.figure(figsize=(8, 6))
     plot_with_regression(euclid_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Euclidean Distance", ylabel="Genetic Distance", title="")
 
+    # plt.figure(figsize=(8, 6))
+    # plot_with_regression(resistance_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Resistance Distance", ylabel="Genetic Distance", title="")
+
     plt.figure(figsize=(8, 6))
-    plot_with_regression(resistance_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Resistance Distance", ylabel="Genetic Distance", title="")
+    plot_with_regression(LCP_dist_mat_ind[mask], gen_mat_ind[mask], xlabel="Resistance Distance", ylabel="Genetic Distance", title="")
+
 
     # plt.figure(figsize=(8, 6))
     # plot_with_regression(resistance_dist_mat_ind[mask], euclid_dist_mat_ind[mask], xlabel="Resistance Distance", ylabel="Euclidean Distance", title="")

@@ -23,4 +23,4 @@ dependencies:
     - jax[cuda12]
     - lineax
     - equinox
-    - -e ./../../jaxscape/
+    - -e ./../../../jaxscape/
