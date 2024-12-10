@@ -5,3 +5,4 @@
 *.pyc
 *.nc
 Manifest.toml
+*.tif*
