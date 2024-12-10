@@ -1,10 +1,7 @@
 import xarray as xr
 import rioxarray
-from pathlib import Path
 import geopandas as gpd
 
-
-NSDM25m_PATH = Path(__file__, "../../../../data/NSDM_25m/").resolve()
 CRS_CH = "EPSG:2056" # https://epsg.io/2056
 
 def calculate_resolution(raster):
