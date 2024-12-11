@@ -1,27 +1,26 @@
 # utilities for NSDM
 from pathlib import Path
 from utils_raster import load_raster
-NSDM25m_PATH = Path(__file__, "../../../../data/NSDM_25m/").resolve()
+NSDM_PATH = {25: Path(__file__, "../../../../data/NSDM_25m/").resolve(),
+             100:Path(__file__, "../../../../data/NSDM_100m/").resolve()}
 
 
-class NSDM():
-    def load_raster(self, species_name):
-        path = NSDM25m_PATH/species_name
-        raster_file = list(path.glob("*.tif"))
+class NSDM:
+    def load_raster(self, species_name, resolution=100):
+        formatted_species_name = species_name.replace(" ", ".")
+        
+        filename_pattern = f"{resolution}m_{formatted_species_name}_reg_covariate_ensemble.tif"
+        
+        raster_file = list(NSDM_PATH[resolution].glob(filename_pattern))
+        
         if len(raster_file) == 1:
             raster_file = raster_file[0]
             raster = load_raster(raster_file)
             return raster
-
         else:
-            raise ValueError(f"Problem reading {species_name} raster")
-
-        
+            raise ValueError(f"Problem reading raster for species '{species_name}'. File not found or multiple matches.")
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from TraitsCH import TraitsCH
-
     # Test initialization
     data = NSDM()
     species_name = "Squalius cephalus"
