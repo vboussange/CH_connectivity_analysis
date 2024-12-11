@@ -14,14 +14,17 @@ def coarsen_raster(raster, resampling_factor):
     raster_coarse.rio.set_crs(raster.rio.crs)
     return raster_coarse
     
-def load_raster(path):
+def load_raster(path, scale=True):
     # Load the raster file
     raster = rioxarray.open_rasterio(path, mask_and_scale=True)
     raster = raster.drop_vars(["band"]) # we keep `spatial_ref` var. as it contains crs data
     raster = raster.rename(path.parent.stem)
-    if (raster.max() > 1) & (raster.min() < 100):
-        print("Rescaling habitat quality between 0 and 1")
-        raster = raster / 100.
+    if scale:
+        if (raster.max() > 1) & (raster.min() < 100):
+            print("Rescaling habitat quality between 0 and 1")
+            raster = raster / 100.
+        else:
+            raise ValueError("raster values are not in the expected range")
     return raster
 
 def crop_raster(raster, buffer):
