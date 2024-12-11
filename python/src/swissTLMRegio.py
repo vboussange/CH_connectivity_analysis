@@ -1,3 +1,8 @@
+import pyproj
+pyproj.datadir.set_data_dir("/Users/victorboussange/projects/connectivity/connectivity_analysis/code/python/.env/share/proj/")
+
+
+
 import geopandas as gpd
 import xarray as xr
 import rioxarray
@@ -6,11 +11,12 @@ from pathlib import Path
 import netCDF4
 import pandas as pd
 import pyogrio
+from utils_raster import CRS_CH
 
 
 SWISSTLMREGIO_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_Product_LV95.gpkg'
 SWISSTLMREGIO_BOUNDARIES_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_BOUNDARIES_LV95.gpkg'
-
+SWISS_WKA_PATH = Path(__file__).parent / '../../../data/hydro/GIS/CH-WKA.shp'
 # layers = pyogrio.list_layers(SWISSTLMREGIO_PATH)
 
 def get_CH_border():
@@ -81,6 +87,33 @@ class MasksDataset:
             return self.masks[key].get_mask()
         else:
             raise KeyError(f"Mask '{key}' not found.")
+
+
+class DamsDataset(BaseMaskDataset):
+    def __init__(self, buffer_distance=0):
+        super().__init__(SWISSTLMREGIO_PATH, f"hydro_barriers_buffer_distance={buffer_distance}.gpkg", buffer_distance)
+
+    def create_mask(self):
+        gdf = gpd.read_file(self.path).to_crs(CRS_CH)
+        if self.buffer_distance > 0:
+            gdf = gdf.buffer(self.buffer_distance)
+        # gdf = gdf.buffer(self.buffer_distance)
+        gdf_merged = gpd.GeoSeries(gdf.union_all(), crs=gdf.crs)
+        gdf_merged.to_file(self.output_file, driver="GPKG")        
+        self.mask = gdf_merged
+
+class WKADataset(BaseMaskDataset):
+    def __init__(self, buffer_distance=100):
+        super().__init__(SWISS_WKA_PATH, f"SWISS_WKA_buffer_distance={buffer_distance}.gpkg", buffer_distance)
+
+    def create_mask(self):
+        gdf = gpd.read_file(self.path).to_crs(CRS_CH)
+        if self.buffer_distance > 0:
+            gdf = gdf.buffer(self.buffer_distance)
+        # gdf = gdf.buffer(self.buffer_distance)
+        gdf_merged = gpd.GeoSeries(gdf.union_all(), crs=gdf.crs)
+        gdf_merged.to_file(self.output_file, driver="GPKG")        
+        self.mask = gdf_merged
 
 
 # class RoadMaskDataset(BaseMaskDataset):

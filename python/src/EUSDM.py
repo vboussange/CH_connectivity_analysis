@@ -2,14 +2,8 @@
 
 # this file reads data from spinfo.csv, but it is a bit of a doublon and you should rather use TraitsCH data
 
-import geopandas as gpd
-import xarray as xr
-import rioxarray
-from shapely.geometry import box
 from pathlib import Path
-import netCDF4
-import pandas as pd
-from utils_raster import load_raster
+from utils_raster import load_raster, CRS_CH
 
 GUILDS_EU_PATH = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
 
@@ -20,7 +14,7 @@ class EUSDM():
         if len(raster_file) == 1:
             raster_file = raster_file[0]
             raster = load_raster(raster_file)
-            return raster
+            return raster.rio.reproject(CRS_CH)
 
         else:
             raise ValueError(f"Problem reading {species_name} raster")

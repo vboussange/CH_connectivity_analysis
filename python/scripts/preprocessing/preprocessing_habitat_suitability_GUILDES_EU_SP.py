@@ -4,6 +4,8 @@ Saving all guilds in an xarrray dataset within a netcdf.
 
 # TODO: you may consider for aquatic bodies to use connection points
 """
+import pyproj
+pyproj.datadir.set_data_dir("/Users/victorboussange/projects/connectivity/connectivity_analysis/code/python/.env/share/proj/")
 
 import geopandas as gpd
 import xarray as xr
@@ -12,9 +14,11 @@ from shapely.geometry import box
 from pathlib import Path
 import netCDF4
 import pandas as pd
+
+import sys
+sys.path.append("./../../src")
 from swissTLMRegio import MasksDataset, get_CH_border
 from TraitsCH import TraitsCH
-
 CRS = "EPSG:2056" # https://epsg.io/2056
                 
 def calculate_resolution(raster):
@@ -42,9 +46,9 @@ def crop_raster(raster, buffer):
 
 def mask_raster(raster, traits_dataset, masks_dataset):
     sp_name = raster.name
-    hab = traits_dataset.get_habitat(sp_name)
-    if hab == "Aqu":
-        mask = masks_dataset[hab]
+    hab = traits_dataset.get_habitats(sp_name)
+    if "Aqu" in hab:
+        mask = masks_dataset["Aqu"]
         raster_masked = raster.rio.clip(mask, all_touched=True, drop=True)
         
     else:
@@ -67,7 +71,7 @@ if __name__ == "__main__":
     traits_dataset = TraitsCH()
 
     # raster_files = list(Path(input_dir).glob('**/*.tif'))
-    raster_files = [Path("/Users/victorboussange/projects/connectivity/connectivity_analysis/code/scripts/preprocessing/../../../data/GUILDS_EU_SP/Salmo trutta/Salmo.trutta_glo_ensemble.tif")]
+    raster_files = [Path("../../../../data/GUILDS_EU_SP/Salmo trutta/Salmo.trutta_glo_ensemble.tif")]
     rasters = [load_raster(file) for file in raster_files]
     # reprojections
     rasters = [rast.rio.reproject(CRS) for rast in rasters]
