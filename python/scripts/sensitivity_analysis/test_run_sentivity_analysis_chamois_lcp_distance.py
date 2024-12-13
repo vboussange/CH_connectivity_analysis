@@ -57,6 +57,7 @@ def run_sensitivity_analysis(habitat_quality, window_op, D, distance, threshold=
             sensitivities = grad_ech(hab_qual, activities, D, distance, nb_active)
             sensitivity_raster = window_op.update_raster_from_window(x_start, y_start, sensitivity_raster, sensitivities)
             del sensitivities
+            del hab_qual
             gc.collect()
             
     return sensitivity_raster
@@ -72,15 +73,17 @@ def load_habitat_quality(resolution=1000.):
 
 if __name__ == "__main__":
     # data
-    params_computation = {"window_size": 5,
+    params_computation = {"window_size": 20,
                         "threshold": 0.1,
                         "resolution": 1000.,
-                        "result_path": Path("./results")}
+                        "result_path": Path("./results"),
+                        "device": "cpu"}
     
     sp_name = "Rupicapra rupicapra"
     traits_dataset = TraitsCH()
     D_m = jnp.array(traits_dataset.get_D(sp_name)) * 1000.
     habitat_quality = load_habitat_quality(resolution=params_computation["resolution"])
+    habitat_quality = jax.device_put(habitat_quality, jax.devices(params_computation["device"])[0])
 
     alpha = jnp.array(1.0)
     resolution = jnp.array(1000.)
