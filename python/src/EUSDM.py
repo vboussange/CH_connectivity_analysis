@@ -1,11 +1,17 @@
 # utilities for EU SDM
 
-# this file reads data from spinfo.csv, but it is a bit of a doublon and you should rather use TraitsCH data
-
 from pathlib import Path
 from utils_raster import load_raster, CRS_CH
+import socket
+hostname = socket.gethostname()
 
-GUILDS_EU_PATH = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
+if hostname == "gpunode05":
+    GUILDS_EU_PATH = Path("/shares/lud11/boussang/S2Z/data/GUILDS_EU_SP/")
+    
+elif hostname == "MacBook-Pro-3.wsl.ch":
+    GUILDS_EU_PATH = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
+
+
 
 class EUSDM():
     def load_raster(self, species_name):

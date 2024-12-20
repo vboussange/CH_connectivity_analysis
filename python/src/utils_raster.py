@@ -38,8 +38,7 @@ def mask_raster(raster, traits_dataset, masks_dataset):
     hab = traits_dataset.get_habitat(sp_name)
     if hab == "Aqu":
         mask = masks_dataset[hab]
-        raster_masked = raster.rio.clip(mask, all_touched=True, drop=True)
+        return raster.rio.clip(mask, all_touched=True, drop=True)
         
     else:
-        raster_masked = raster
-    return raster_masked
+        return raster

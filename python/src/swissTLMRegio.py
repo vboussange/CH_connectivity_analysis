@@ -12,12 +12,18 @@ import netCDF4
 import pandas as pd
 import pyogrio
 from utils_raster import CRS_CH
+import socket
+hostname = socket.gethostname()
 
-
-SWISSTLMREGIO_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_Product_LV95.gpkg'
-SWISSTLMREGIO_BOUNDARIES_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_BOUNDARIES_LV95.gpkg'
-SWISS_WKA_PATH = Path(__file__).parent / '../../../data/hydro/GIS/CH-WKA.shp'
-# layers = pyogrio.list_layers(SWISSTLMREGIO_PATH)
+if hostname == "gpunode05":
+    SWISSTLMREGIO_PATH = Path("/shares/lud11/boussang/S2Z/data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_Product_LV95.gpkg")
+    SWISSTLMREGIO_BOUNDARIES_PATH = Path("/shares/lud11/boussang/S2Z/data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_BOUNDARIES_LV95.gpkg")
+    SWISS_WKA_PATH = Path("/shares/lud11/boussang/S2Z/data/hydro/GIS/CH-WKA.shp")
+elif hostname == "MacBook-Pro-3.wsl.ch":
+    SWISSTLMREGIO_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_Product_LV95.gpkg'
+    SWISSTLMREGIO_BOUNDARIES_PATH = Path(__file__).parent / '../../../data/swisstlmregio_2024_2056_gpkg/swissTLMRegio_BOUNDARIES_LV95.gpkg'
+    SWISS_WKA_PATH = Path(__file__).parent / '../../../data/hydro/GIS/CH-WKA.shp'
+    # layers = pyogrio.list_layers(SWISSTLMREGIO_PATH)
 
 def get_CH_border():
     # layers = pyogrio.list_layers(SWISSTLMREGIO_BOUNDARIES_PATH)

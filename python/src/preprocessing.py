@@ -4,21 +4,16 @@ Generating quality and permeability maps for a terrestrial species in CH
 # import pyproj
 # required due to multiple pyproj installations
 # pyproj.datadir.set_data_dir("/Users/victorboussange/projects/connectivity/connectivity_analysis/code/python/.env/share/proj/")
-# from pyproj import CRS
-# pyproj.datadir.get_data_dir()
-import geopandas as gpd
 import xarray as xr
-import rioxarray
+from shapely.geometry import box
 from pathlib import Path
-import sys
-sys.path.append("./../../../python/src")
-from swissTLMRegio import MasksDataset, get_CH_border, DamsDataset, WKADataset
+import numpy as np
+from swissTLMRegio import MasksDataset, get_CH_border
 from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster
 from TraitsCH import TraitsCH
-import geopandas as gpd
 from NSDM import NSDM
 from EUSDM import EUSDM
-import json
+import jax.numpy as jnp
 
 def compile_quality(species_name, D_m, resolution):
     # loading fine resolution raster
@@ -31,18 +26,23 @@ def compile_quality(species_name, D_m, resolution):
     # raster_NSDM = raster_NSDM.fillna(0)
     
     # loading coarse resolution raster
-    raster_coarse = EUSDM().load_raster(species_name)
-    switzerland_boundary = get_CH_border()
-    switzerland_buffer = switzerland_boundary.buffer(D_m)
-    raster_coarse = crop_raster(raster_coarse.squeeze(), switzerland_buffer)
-
-    # merging coarse and fine rasters 
-    raster_coarse_interp = raster_coarse.interp_like(raster_NSDM, method="nearest")
-    combined_raster = xr.where(raster_NSDM.notnull(), raster_NSDM, raster_coarse_interp)
-    combined_raster.rio.set_crs(raster_NSDM.rio.crs)
+    try:
+        raster_coarse = EUSDM().load_raster(species_name)
+        switzerland_boundary = get_CH_border()
+        switzerland_buffer = switzerland_boundary.buffer(D_m)
+        raster_coarse = crop_raster(raster_coarse.squeeze(), switzerland_buffer)
+        
+        # merging coarse and fine rasters 
+        raster_coarse_interp = raster_coarse.interp_like(raster_NSDM, method="nearest")
+        combined_raster = xr.where(raster_NSDM.notnull(), raster_NSDM, raster_coarse_interp)
+        combined_raster.rio.set_crs(raster_NSDM.rio.crs, inplace=True)
+        combined_raster = combined_raster.rename(species_name)
+        
+    except Exception as e:
+        print(f"Failed to load coarse resolution raster: {e}")
+        combined_raster = raster_NSDM
     
-    
-    # masking out habitat
+    # masking out land for aquatic species
     combined_raster = mask_raster(combined_raster, TraitsCH(), MasksDataset())
     return combined_raster
 
@@ -67,26 +67,13 @@ def compile_resistance(quality, barriers, eps =  1e-5):
     return final_resistance.rio.set_crs(quality.rio.crs)
 
 
-if __name__ == "__main__":
-    species_name = "Rupicapra rupicapra"
-    output_path = Path("output") / species_name
-    output_path.mkdir(parents=True, exist_ok=True)
-    resolution = 100 # meters
-    traits = TraitsCH()
-    D_m = traits.get_D(species_name) * 1000 # in meters
+def padding(quality, buffer_size, batch_size):
+    pad_height = (quality.shape[0] + 2 * buffer_size) % batch_size
+    pad_width = (quality.shape[1] + 2 * buffer_size) % batch_size
 
-    quality = compile_quality(species_name, D_m, resolution)
-    resistance = compile_resistance(quality, [])
-    
-    resistance = resistance.rio.write_nodata(np.nan, encoded=True)
-    quality = quality.rio.write_nodata(np.nan, encoded=True)
-    resistance.rio.to_raster(output_path / "resistance.tif", dtype="float32")
-    quality.rio.to_raster(output_path / "quality.tif", dtype="float32")
-    
-    # Save info in a json file
-    D_m_data = {"species_name": species_name, 
-                "D_m": D_m,
-                "resolution": resolution}
-    with open(output_path / "info.json", "w") as json_file:
-        json.dump(D_m_data, json_file)
-    
+    padded_quality = jnp.pad(
+        quality,
+        (pad_height, pad_width),
+        mode='constant'
+    )
+    return padded_quality
