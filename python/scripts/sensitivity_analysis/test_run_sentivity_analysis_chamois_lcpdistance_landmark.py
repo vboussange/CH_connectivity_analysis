@@ -18,6 +18,7 @@ from jaxscape.moving_window import WindowOperation
 from jaxscape.lcp_distance import LCPDistance
 from jaxscape.rsp_distance import RSPDistance
 from jaxscape.landmarks import coarse_graining
+import jax.tree_util as jtu
 import equinox as eqx
 import sys
 sys.path.append("./../../src")
@@ -30,33 +31,44 @@ def calculate_resolution(raster):
     lon_resolution = abs(raster.x.diff(dim='x').mean().values)
     return lat_resolution, lon_resolution
 
-def calculate_ech(grid, distance, source):
-
-    dist = distance(grid, source)
-    # TODO: very unrealistic
-    # proximity = jnp.exp(-dist / D)
-    # landscape = ExplicitGridGraph(activities=activities, 
-    #                               vertex_weights=habitat_quality, 
-    #                               adjacency_matrix=proximity,
-    #                               nb_active=nb_active)
+def calculate_ech(diff_grid, static_grid, distance, sources):
+    grid = eqx.combine(diff_grid, static_grid)
+    dist = distance(grid, sources)
+    dist = jnp.where(jnp.isinf(dist), 0, dist)
     return jnp.sum(dist)
 
-def run_sensitivity_analysis(habitat_quality, window_op, D, distance, threshold=0.1):
+def run_sensitivity_analysis(habitat_quality, 
+                             window_op, 
+                             distance, 
+                             threshold=0.1,
+                             npix=10):
     sensitivity_raster = jnp.full_like(habitat_quality, jnp.nan)
-    grad_ech = eqx.filter_jit(eqx.filter_grad(calculate_ech))
+    
+    # TODO: we should be able to jit this, but `sources` is not static
+    # In fact, we should make sure that coarse_graining can be jitted,
+    # By returning a BCOO array with the exact number landmarks, not only the ones which we assumed valid
+    # For this, you can assign an `inf` value to the invalid landmarks - they are filtered out later
+    grad_ech = eqx.filter_grad(calculate_ech)
     
     for x_start, y_start, hab_qual in tqdm(window_op.iterate_windows(habitat_quality), total=window_op.nb_steps, desc="Running Analysis"):
         activities = hab_qual > threshold
-        nb_active = int(jnp.sum(activities))
         
         grid = GridGraph(activities=activities, 
-                    vertex_weights=habitat_quality, 
-                    nb_active=nb_active)
-        landmarks = coarse_graining(grid, activities, D, distance, nb_active)
-        sources = landmarks.indices
-        if nb_active > 0:
-            sensitivities = grad_ech(grid, D, distance, nb_active, sources)
-            sensitivity_raster = window_op.update_raster_from_window(x_start, y_start, sensitivity_raster, sensitivities)
+                        vertex_weights=hab_qual,
+                        nb_active=int(jnp.sum(activities)))
+        if grid.nb_active > 1:
+            landmarks = coarse_graining(grid, npix)
+            sources = landmarks.indices
+            filter_spec = jtu.tree_map(lambda _: True, grid)
+            filter_spec = eqx.tree_at(
+                                        lambda tree: (tree.activities),
+                                        filter_spec,
+                                        replace=False,
+                                    )
+            # see https://docs.kidger.site/equinox/examples/frozen_layer/
+            diff_grid, static_grid = eqx.partition(grid, filter_spec)
+            sensitivities = grad_ech(diff_grid, static_grid, distance, sources)
+            sensitivity_raster = window_op.update_raster_from_window(x_start, y_start, sensitivity_raster, sensitivities.vertex_weights)
             del sensitivities
             gc.collect()
             
@@ -75,7 +87,7 @@ if __name__ == "__main__":
     # data
     params_computation = {"window_size": 5,
                         "threshold": 0.1,
-                        "resolution": 1000.,
+                        "resolution": 100.,
                         "result_path": Path("./results")}
     
     sp_name = "Rupicapra rupicapra"
@@ -99,9 +111,8 @@ if __name__ == "__main__":
     distance = LCPDistance()
     sensitivity_raster = run_sensitivity_analysis(habitat_quality, 
                                                   window_op, 
-                                                  D, 
                                                   distance, 
-                                                  threshold=params_computation["threshold"])
+                                                  threshold=params_computation["threshold"],)
     plt.imshow(sensitivity_raster)
 
     # Save the sensitivity_raster as a numpy array
