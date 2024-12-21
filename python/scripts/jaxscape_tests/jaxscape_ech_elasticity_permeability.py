@@ -1,6 +1,6 @@
 """
-Running sensitivity analysis of equivalent connected habitat for euclidean distance.
-This script copies the behavior of omniscape.
+Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
+TODO: need to verify that the batching and calculation are correct.
 """
 import jax
 import numpy as np
@@ -50,10 +50,9 @@ qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
 if __name__ == "__main__":
     
-    # TODO: you may want to have a buffer_size adapted to dispersal range
     config = {"species_name": "Rupicapra rupicapra",
-              "resolution": 100, # meters
               "batch_size": 2, # pixels, actual batch size is batch_size**2
+              "resolution": 100, # meters
               "coarsening_factor": 9, # pixels, must be odd, where 1 is no coarsening
               "dtype": "float32",
              }
@@ -73,10 +72,8 @@ if __name__ == "__main__":
     quality = jnp.array(quality_raster.values[0,...], dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
     
-    # test
     # TODO: to remove
     # TODO: you may need to have a function that checks whether the raster is valid before running full computation
-    # quality = quality[1000:2000, 1000:2000]
     plt.imshow(quality)
     
     D = np.array(D_m / config["resolution"], dtype=config["dtype"])
@@ -108,20 +105,20 @@ if __name__ == "__main__":
     # unpadding
     output = output[:quality.shape[0], :quality.shape[1]]
     
-    # TODO: need to calculate qKq
-    qKq = output * quality
-    
+    elasticity = output * quality # quality == permeability
+
+    # TODO: to remove
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     im1 = axes[0].imshow(quality)
     axes[0].set_title("Quality")
     fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(qKq)
-    axes[1].set_title("qKq")
+    im2 = axes[1].imshow(elasticity)
+    axes[1].set_title("Elasticity w.r.t permeability")
     fig.colorbar(im2, ax=axes[1], shrink=0.1)
     plt.show()
     
     # TODO: save output
     output_raster = deepcopy(quality_raster)
-    output_raster.values[0,...] = qKq
+    output_raster.values[0,...] = elasticity
     output_raster.rio.to_raster(output_path / "output.tif", compress='lzw')
     
