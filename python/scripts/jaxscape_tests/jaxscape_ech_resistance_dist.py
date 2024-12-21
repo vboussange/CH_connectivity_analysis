@@ -63,7 +63,7 @@ def batch_run_calculation(window_op, xy, hab_qual, activities, distance, D, rast
 if __name__ == "__main__":
     
     # TODO: you may want to have an adapted buffer_size
-    config = {"species_name": "Larix decidua",
+    config = {"species_name": "Rupicapra rupicapra",
               "batch_size": 1, # pixels, actual batch size is batch_size**2
               "resolution": 100, # meters
               "buffer_size_m": 10_000, # meters
