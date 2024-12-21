@@ -18,8 +18,8 @@ import equinox as eqx
 from tqdm import tqdm
 import sys
 sys.path.append("./../../src")
-from utils_raster import load_raster
-from preprocessing import compile_quality, padding
+from preprocessing import compile_quality
+from processing import batch_run_calculation, padding
 from TraitsCH import TraitsCH
 import xarray as xr
 import rioxarray
@@ -47,16 +47,6 @@ qKqT_grad = eqx.filter_jit(eqx.filter_grad(qKqT))
 
 qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
-@eqx.filter_jit
-def batch_run_calculation(window_op, xy, hab_qual, activities, distance, D, raster_buffer):
-    permeability = hab_qual
-    res = qKqT_grad_vmap(permeability, hab_qual, activities, distance, D)
-    def scan_fn(raster_buffer, x):
-        _xy, _rast = x
-        raster_buffer = window_op.update_raster_with_window(_xy, raster_buffer, _rast, fun=jnp.add)
-        return raster_buffer, None
-    raster_buffer, _ = lax.scan(scan_fn, raster_buffer, (xy, res))
-    return raster_buffer
 
 if __name__ == "__main__":
     
@@ -111,8 +101,8 @@ if __name__ == "__main__":
         if not jnp.all(jnp.isnan(permeability_batch)):
             xy, hab_qual = window_op.eager_iterator(permeability_batch)
             activities = jnp.ones_like(hab_qual, dtype="bool")
-            raster_buffer = jnp.zeros_like(permeability_batch)
-            res = batch_run_calculation(window_op, xy, hab_qual, activities, distance, D, raster_buffer)
+            permeability = hab_qual
+            res = batch_run_calculation(batch_op, window_op, xy, qKqT_grad_vmap, permeability, hab_qual, activities, distance, D)
             output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
     
     # unpadding

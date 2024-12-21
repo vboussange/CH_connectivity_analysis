@@ -19,7 +19,8 @@ from tqdm import tqdm
 import sys
 sys.path.append("./../../src")
 from utils_raster import load_raster
-from preprocessing import compile_quality, padding
+from preprocessing import compile_quality
+from processing import batch_run_calculation, padding
 from TraitsCH import TraitsCH
 import xarray as xr
 import rioxarray
@@ -46,23 +47,12 @@ def Kq(hab_qual, activities, distance, D):
 
 Kq_vmap = eqx.filter_vmap(Kq, in_axes=(0,0,None,None))
 
-@eqx.filter_jit
-def batch_run_calculation(window_op, xy, hab_qual, activities, distance, D, raster_buffer):
-    res = Kq_vmap(hab_qual, activities, distance, D)
-    def scan_fn(raster_buffer, x):
-        _xy, _rast = x
-        raster_buffer = window_op.update_raster_with_window(_xy, raster_buffer, _rast, fun=jnp.add)
-        return raster_buffer, None
-    raster_buffer, _ = lax.scan(scan_fn, raster_buffer, (xy, res))
-    return raster_buffer
-
 if __name__ == "__main__":
     
     # TODO: you may want to have a buffer_size adapted to dispersal range
     config = {"species_name": "Rupicapra rupicapra",
-              "batch_size": 9, # pixels, actual batch size is batch_size**2
+              "batch_size": 18, # pixels, actual batch size is batch_size**2
               "resolution": 100, # meters
-            #   "buffer_size_m": 5_000, # meters
               "coarsening_factor": 9, # must be odd, where 1 is no coarsening
               "dtype": "float32",
              }
@@ -111,7 +101,7 @@ if __name__ == "__main__":
             xy, hab_qual = window_op.eager_iterator(permeability_batch)
             activities = jnp.ones_like(hab_qual, dtype="bool")
             raster_buffer = jnp.zeros_like(permeability_batch)
-            res = batch_run_calculation(window_op, xy, hab_qual, activities, distance, D, raster_buffer)
+            res = batch_run_calculation(batch_op, window_op, xy, Kq_vmap, hab_qual, activities, distance, D)
             output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
     
     # unpadding
