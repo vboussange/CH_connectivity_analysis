@@ -79,11 +79,36 @@ class AquaticMaskDataset(BaseMaskDataset):
         # Store the mask in the object
         self.mask = gdf_aqu_merged
         
+class TerrestrialMaskDataset(BaseMaskDataset):
+    def __init__(self):
+        super().__init__(SWISSTLMREGIO_PATH, f"Ter_mask_buffer_distance.gpkg")
+
+    def create_mask(self):        
+        # Load river and lake layers
+        # gdf_rivers = gpd.read_file(self.path, layer="tlmregio_hydrography_flowingwater")
+        gdf_lakes = gpd.read_file(self.path, layer="tlmregio_hydrography_lake")
+        
+        # Apply buffer to the rivers
+        # gdf_rivers = gdf_rivers.buffer(self.buffer_distance)
+        
+        # Concatenate river and lake geometries
+        # gdf_aqu = pd.concat([gdf_rivers.geometry, gdf_lakes.geometry])
+        
+        # Merge the geometries into a single mask
+        gdf_aqu_merged = gpd.GeoSeries(gdf_lakes.geometry.union_all(), crs=gdf_lakes.crs)
+        gdf_aqu_merged = gpd.GeoDataFrame(geometry=gdf_aqu_merged, crs=gdf_lakes.crs)
+        gdf_aqu_merged_inverted = gpd.overlay(gpd.GeoDataFrame(geometry=[box(*gdf_lakes.total_bounds)], crs=gdf_lakes.crs), gdf_aqu_merged, how='difference')
+        gdf_aqu_merged_inverted.to_file(self.output_file, driver="GPKG")
+        
+        # Store the mask in the object
+        self.mask = gdf_aqu_merged_inverted
+        
 class MasksDataset:
     def __init__(self):
         # Create a dictionary of mask datasets. More masks can be added in the future.
         self.masks = {
             "Aqu": AquaticMaskDataset(),
+            "Ter": TerrestrialMaskDataset(),
             # "Road": RoadMaskDataset(buffer_distance=buffer_distance)  # Example of another mask
         }
 
@@ -141,3 +166,14 @@ class WKADataset(BaseMaskDataset):
         
 #         # Store the mask in the object
 #         self.mask = gdf_road_merged
+
+if __name__ == "__main__":
+    # Test the mask datasets
+    
+    ter = TerrestrialMaskDataset()
+    ter.path
+    gpd.read_file(ter.path, layer="tlmregio_hydrography_lake").plot()
+    masks = MasksDataset()
+    masks["Ter"].plot()
+    print(masks["Aqu"])
+    # print(masks["Road

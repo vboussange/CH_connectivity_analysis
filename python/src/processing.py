@@ -55,3 +55,5 @@ if __name__ == "__main__":
             assert (padded_raster.shape[i] - 2 * buffer_size) % window_size == 0
         
     test_padding()
+    
+    # TODO: test batch_run_calculation

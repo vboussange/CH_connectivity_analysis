@@ -36,9 +36,9 @@ def crop_raster(raster, buffer):
 def mask_raster(raster, traits_dataset, masks_dataset):
     sp_name = raster.name
     hab = traits_dataset.get_habitat(sp_name)
-    if hab == "Aqu":
+    if hab == "Aqu" or hab == "Ter":
         mask = masks_dataset[hab]
         return raster.rio.clip(mask, all_touched=True, drop=True)
-        
+    
     else:
         return raster

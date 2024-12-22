@@ -52,7 +52,10 @@ class TraitsCH():
         return data
     
     def get_all_species_from_guild(self, guild_name):
-        return self.spinfo[self.spinfo[guild_name] == 1].species
+        return self.data[self.data[guild_name] == 1].Species
+    
+    def get_all_species_from_group(self, group_name):
+        return self.data[self.data["Group"] == group_name].Species
     
     def get_habitat(self, species_name):
         return self._get_dummy(species_name, ["Fos", "Ter", "Aqu", "Arb", "Aer"])[0]
