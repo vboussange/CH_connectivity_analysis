@@ -67,9 +67,7 @@ if __name__ == "__main__":
     
     quality = jnp.array(quality_raster.values, dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
-    
-    quality = quality[1000:1500, 1000:1500]
-    
+        
     D = np.array(3 * D_m / config["resolution"], dtype=config["dtype"])
 
     # buffer size should be of the order of the dispersal range - half that of the window operation size
@@ -102,7 +100,6 @@ if __name__ == "__main__":
     # unpadding
     output = output[:quality.shape[0], :quality.shape[1]]
     
-    # TODO: maybe we want output * resistance?
     elasticity = output * quality # quality == permeability
 
     # TODO: to remove

@@ -2,6 +2,24 @@ import jax.numpy as jnp
 import equinox as eqx
 from jax import lax
 
+GROUP_INFO = {"Mammals": "LCPDistance",
+            "Reptiles": "LCPDistance",
+            "Amphibians": "EuclideanDistance",
+            "Birds": "EuclideanDistance",
+            "Fishes": "LCPDistance",
+            "Plants": "EuclideanDistance",
+            "Bryophytes": "EuclideanDistance",
+            "Spiders": "LCPDistance",
+            "Beetles": "LCPDistance",
+            "Dragonflies": "LCPDistance",
+            "Grasshoppers": "LCPDistance",
+            "Butterflies": "LCPDistance",
+            "Bees": "LCPDistance",
+            "Fungi": "EuclideanDistance",
+            "Gasteropods": "LCPDistance",
+            "Lichens": "EuclideanDistance",},
+              
+
 @eqx.filter_jit
 def batch_run_calculation(batch_op, window_op, xy, fun, *args):
     raster_buffer = jnp.zeros((batch_op.total_window_size, batch_op.total_window_size))

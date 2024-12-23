@@ -48,9 +48,9 @@ Kq_vmap = eqx.filter_vmap(Kq, in_axes=(0,0,None,None))
 if __name__ == "__main__":
     
     config = {"group": "Reptiles",
-              "batch_size": 2**5, # pixels, actual batch size is batch_size**2
+              "batch_size": 2**7, # pixels, actual batch size is batch_size**2
               "resolution": 100, # meters
-              "coarsening_factor": 3, # pixels, must be odd, where 1 is no coarsening
+              "coarsening_factor": 7, # pixels, must be odd, where 1 is no coarsening
               # TODO: coarsening_factor may require tuning w.r.t. the dispersal range
               "dtype": "float32",
              }
@@ -66,9 +66,6 @@ if __name__ == "__main__":
     
     quality = jnp.array(quality_raster.values, dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
-    
-    quality = quality[1000:2000, 1000:2000]
-
     D = np.array(3 * D_m / config["resolution"], dtype=config["dtype"])
 
     # buffer size should be of the order of the dispersal range - half that of the window operation size
@@ -109,7 +106,7 @@ if __name__ == "__main__":
     im1 = axes[0].imshow(quality)
     axes[0].set_title("Quality")
     fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(elasticity, vmax=0.2)
+    im2 = axes[1].imshow(elasticity)
     axes[1].set_title("Elasticity w.r.t quality")
     fig.colorbar(im2, ax=axes[1], shrink=0.1)
     plt.show()
