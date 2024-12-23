@@ -31,16 +31,11 @@ def Kq(hab_qual, activities, distance, D):
                      vertex_weights=hab_qual,
                      nb_active=activities.size)
 
-    window_center = jnp.array([[activities.shape[0]//2+1, activities.shape[1]//2+1]])
-    
-    dist = distance(grid, sources=window_center).reshape(-1)
+    test = jnp.zeros_like(hab_qual)
+    window_center = [activities.shape[0]//2+1, activities.shape[1]//2+1]
 
-    K = jnp.exp(-dist/D) # calculating proximity matrix
-    
-    epsilon = K * hab_qual[window_center[0, 0], window_center[0, 1]]
-    epsilon = grid.node_values_to_array(epsilon)
-
-    return epsilon
+    test = test.at[window_center[0], window_center[1]].set(1)
+    return test
 
 
 Kq_vmap = eqx.filter_vmap(Kq, in_axes=(0,0,None,None))
@@ -100,21 +95,12 @@ if __name__ == "__main__":
             output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
     
     # unpadding
-    output = output[:quality.shape[0], :quality.shape[1]]
-    
-    elasticity = output * quality
-    
-    # TODO: to remove
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im1 = axes[0].imshow(quality)
-    axes[0].set_title("Quality")
-    fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(elasticity, vmax=0.2)
-    axes[1].set_title("Elasticity w.r.t quality")
-    fig.colorbar(im2, ax=axes[1], shrink=0.1)
-    plt.show()
-    
-    output_raster = deepcopy(quality_raster)
-    output_raster.values = elasticity
-    output_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
+    output = output[buffer_size:-buffer_size, buffer_size:-buffer_size]
+    # test
+    print("Testing output...")
+    x_idx = jnp.arange(config["coarsening_factor"]-1, output.shape[0], config["coarsening_factor"])
+    y_idx = jnp.arange(config["coarsening_factor"]-1, output.shape[1], config["coarsening_factor"])
+    assert jnp.all(output[x_idx[:, None], y_idx] == 1)
+    assert jnp.allclose(output[output < 1], 0)
+    print("Test passed")
     

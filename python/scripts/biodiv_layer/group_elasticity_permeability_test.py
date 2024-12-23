@@ -1,6 +1,5 @@
 """
-Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
-TODO: need to verify that the batching and calculation are correct.
+Testing elasticity script.
 """
 import jax
 import numpy as np
@@ -24,31 +23,27 @@ import xarray as xr
 import rioxarray
 from copy import deepcopy
 
-def Kq(hab_qual, activities, distance, D):
+def qKqT(permeability, hab_qual, activities, distance, D):
     """For simplicitity, we calculate connectivity as the sum of the inverse of the exp of distances."""
 
     grid = GridGraph(activities=activities, 
-                     vertex_weights=hab_qual,
+                     vertex_weights=permeability,
                      nb_active=activities.size)
 
-    window_center = jnp.array([[activities.shape[0]//2+1, activities.shape[1]//2+1]])
-    
-    dist = distance(grid, sources=window_center).reshape(-1)
+    window_center = (activities.shape[0]//2+1, activities.shape[1]//2+1)
 
-    K = jnp.exp(-dist/D) # calculating proximity matrix
-    
-    epsilon = K * hab_qual[window_center[0, 0], window_center[0, 1]]
-    epsilon = grid.node_values_to_array(epsilon)
-
-    return epsilon
+    return permeability[window_center[0], window_center[1]] 
 
 
-Kq_vmap = eqx.filter_vmap(Kq, in_axes=(0,0,None,None))
+qKqT_grad = eqx.filter_jit(eqx.filter_grad(qKqT))
+
+qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
+
 
 if __name__ == "__main__":
     
     config = {"group": "Reptiles",
-              "batch_size": 2**5, # pixels, actual batch size is batch_size**2
+              "batch_size": 2**6, # pixels, actual batch size is batch_size**2
               "resolution": 100, # meters
               "coarsening_factor": 3, # pixels, must be odd, where 1 is no coarsening
               # TODO: coarsening_factor may require tuning w.r.t. the dispersal range
@@ -59,16 +54,15 @@ if __name__ == "__main__":
 
     output_path = Path("output") / config["group"]
     output_path.mkdir(parents=True, exist_ok=True)
-
-    quality_raster, _, D_m = compile_group_suitability(config["group"], 
-                                                config["resolution"])
     
+    quality_raster, _, D_m = compile_group_suitability(config["group"], 
+                                                    config["resolution"])
     
     quality = jnp.array(quality_raster.values, dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
     
-    quality = quality[1000:2000, 1000:2000]
-
+    quality = quality[1000:1500, 1000:1500]
+    
     D = np.array(3 * D_m / config["resolution"], dtype=config["dtype"])
 
     # buffer size should be of the order of the dispersal range - half that of the window operation size
@@ -90,31 +84,20 @@ if __name__ == "__main__":
     window_op = WindowOperation(shape=(batch_op.total_window_size, batch_op.total_window_size), 
                                 window_size=config["coarsening_factor"], 
                                 buffer_size=buffer_size)
-    
     for (xy_batch, permeability_batch) in tqdm(batch_op.lazy_iterator(quality_padded), desc="Batch progress", total=batch_op.nb_steps):
         if not jnp.all(jnp.isnan(permeability_batch)):
             xy, hab_qual = window_op.eager_iterator(permeability_batch)
             activities = jnp.ones_like(hab_qual, dtype="bool")
-            raster_buffer = jnp.zeros_like(permeability_batch)
-            res = batch_run_calculation(batch_op, window_op, xy, Kq_vmap, hab_qual, activities, distance, D)
+            permeability = hab_qual
+            res = batch_run_calculation(batch_op, window_op, xy, qKqT_grad_vmap, permeability, hab_qual, activities, distance, D)
             output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
     
     # unpadding
-    output = output[:quality.shape[0], :quality.shape[1]]
-    
-    elasticity = output * quality
-    
-    # TODO: to remove
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im1 = axes[0].imshow(quality)
-    axes[0].set_title("Quality")
-    fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(elasticity, vmax=0.2)
-    axes[1].set_title("Elasticity w.r.t quality")
-    fig.colorbar(im2, ax=axes[1], shrink=0.1)
-    plt.show()
-    
-    output_raster = deepcopy(quality_raster)
-    output_raster.values = elasticity
-    output_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
-    
+    output = output[buffer_size:-buffer_size, buffer_size:-buffer_size]
+    # test
+    print("Testing output...")
+    x_idx = jnp.arange(config["coarsening_factor"]-1, output.shape[0], config["coarsening_factor"])
+    y_idx = jnp.arange(config["coarsening_factor"]-1, output.shape[1], config["coarsening_factor"])
+    assert jnp.all(output[x_idx[:, None], y_idx] == 1)
+    assert jnp.allclose(output[output < 1], 0)
+    print("Test passed")
