@@ -19,7 +19,8 @@ from tqdm import tqdm
 import sys
 sys.path.append("./../../src")
 from preprocessing import compile_group_suitability
-from processing import batch_run_calculation, padding
+from processing import batch_run_calculation, padding, GROUP_INFO
+from postprocessing import postprocess
 import xarray as xr
 import rioxarray
 from copy import deepcopy
@@ -49,70 +50,76 @@ qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
 if __name__ == "__main__":
     
-    config = {"group": "Reptiles",
-              "batch_size": 2**4, # pixels, actual batch size is batch_size**2
-              "resolution": 100, # meters
-              "coarsening_factor": 7, # pixels, must be odd, where 1 is no coarsening
-              # TODO: coarsening_factor may require tuning w.r.t. the dispersal range
-              "dtype": "float32",
-             }
+    config = {"batch_size": 2**6, # pixels, actual batch size is batch_size**2
+            "resolution": 100, # meters
+            "coarsening_factor": 0.3, # percentage of the dispersal range, used to calculate landmarks
+            "dtype": "float32",
+            }
 
-    distance = LCPDistance()
+    for group in GROUP_INFO:
+        distance = GROUP_INFO[group]
 
-    output_path = Path("output") / config["group"]
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    quality_raster, _, D_m = compile_group_suitability(config["group"], 
-                                                    config["resolution"])
-    
-    quality = jnp.array(quality_raster.values, dtype=config["dtype"])
-    quality = jnp.nan_to_num(quality, nan=0.0)
+        output_path = Path("output") / group
+        output_path.mkdir(parents=True, exist_ok=True)
         
-    D = np.array(3 * D_m / config["resolution"], dtype=config["dtype"])
+        quality_raster, _, D_m = compile_group_suitability(group, 
+                                                        config["resolution"])
+        
+        quality = jnp.array(quality_raster.values, dtype=config["dtype"])
+        quality = jnp.nan_to_num(quality, nan=0.0)
+        quality = jnp.where(quality == 0, 1e-5, quality)
+        
+        assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality))
+            
+        D = np.array(D_m / config["resolution"], dtype=config["dtype"])
+        coarsening = int(jnp.ceil(D * config["coarsening_factor"]))
+        if coarsening % 2 == 0:
+            coarsening += 1
+            
+        # buffer size should be of the order of the dispersal range - half that of the window operation size
+        # size distance is calculated from the center pixel of the window
+        buffer_size = int(3 * D - (coarsening - 1)/2)
+        if buffer_size < 1:
+            raise ValueError("Buffer size is too small. Consider decreasing the coarsening factor or decreasing the raster resolution.")
+        
+        batch_window_size = config["batch_size"] * coarsening
 
-    # buffer size should be of the order of the dispersal range - half that of the window operation size
-    # size distance is calculated from the center pixel of the window
-    buffer_size = int(D - (config["coarsening_factor"] - 1)/2)
-    if buffer_size < 1:
-        raise ValueError("Buffer size is too small. Consider decreasing the coarsening factor or decreasing the raster resolution.")
-    
-    batch_window_size = config["batch_size"] * config["coarsening_factor"]
+        quality_padded = padding(quality, buffer_size, batch_window_size)
+        
+        batch_op = WindowOperation(
+            shape=quality_padded.shape, 
+            window_size=batch_window_size, 
+            buffer_size=buffer_size)
+        
+        output = jnp.zeros_like(quality_padded) # initialize raster
+        window_op = WindowOperation(shape=(batch_op.total_window_size, batch_op.total_window_size), 
+                                    window_size=coarsening, 
+                                    buffer_size=buffer_size)
+        for (xy_batch, permeability_batch) in tqdm(batch_op.lazy_iterator(quality_padded), desc="Batch progress", total=batch_op.nb_steps):
+            if not jnp.all(jnp.isnan(permeability_batch)):
+                xy, hab_qual = window_op.eager_iterator(permeability_batch)
+                activities = jnp.ones_like(hab_qual, dtype="bool")
+                permeability = hab_qual
+                res = batch_run_calculation(batch_op, window_op, xy, qKqT_grad_vmap, permeability, hab_qual, activities, distance, D)
+                output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
+        
+        # unpadding
+        output = output[:quality.shape[0], :quality.shape[1]]
+        
+        elasticity = output * quality # quality == permeability
 
-    quality_padded = padding(quality, buffer_size, batch_window_size)
-    
-    batch_op = WindowOperation(
-        shape=quality_padded.shape, 
-        window_size=batch_window_size, 
-        buffer_size=buffer_size)
-    
-    output = jnp.zeros_like(quality_padded) # initialize raster
-    window_op = WindowOperation(shape=(batch_op.total_window_size, batch_op.total_window_size), 
-                                window_size=config["coarsening_factor"], 
-                                buffer_size=buffer_size)
-    for (xy_batch, permeability_batch) in tqdm(batch_op.lazy_iterator(quality_padded), desc="Batch progress", total=batch_op.nb_steps):
-        if not jnp.all(jnp.isnan(permeability_batch)):
-            xy, hab_qual = window_op.eager_iterator(permeability_batch)
-            activities = jnp.ones_like(hab_qual, dtype="bool")
-            permeability = hab_qual
-            res = batch_run_calculation(batch_op, window_op, xy, qKqT_grad_vmap, permeability, hab_qual, activities, distance, D)
-            output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
-    
-    # unpadding
-    output = output[:quality.shape[0], :quality.shape[1]]
-    
-    elasticity = output * quality # quality == permeability
-
-    # TODO: to remove
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im1 = axes[0].imshow(quality)
-    axes[0].set_title("Quality")
-    fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(elasticity)
-    axes[1].set_title("Elasticity w.r.t permeability")
-    fig.colorbar(im2, ax=axes[1], shrink=0.1)
-    plt.show()
-    
-    output_raster = deepcopy(quality_raster)
-    output_raster.values = elasticity
-    output_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
-    
+        # TODO: to remove
+        # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        # im1 = axes[0].imshow(quality)
+        # axes[0].set_title("Quality")
+        # fig.colorbar(im1, ax=axes[0], shrink=0.1)
+        # im2 = axes[1].imshow(elasticity)
+        # axes[1].set_title("Elasticity w.r.t permeability")
+        # fig.colorbar(im2, ax=axes[1], shrink=0.1)
+        # plt.show()
+        
+        output_raster = deepcopy(quality_raster)
+        output_raster.values = elasticity
+        output_raster = postprocess(output_raster)
+        output_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
+        quality_raster.rio.to_raster(output_path / "quality.tif", compress='lzw')

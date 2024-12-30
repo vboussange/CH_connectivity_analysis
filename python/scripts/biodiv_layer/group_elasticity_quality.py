@@ -20,6 +20,7 @@ import sys
 sys.path.append("./../../src")
 from preprocessing import compile_group_suitability
 from processing import batch_run_calculation, padding
+from postprocessing import postprocess
 import xarray as xr
 import rioxarray
 from copy import deepcopy
@@ -66,6 +67,10 @@ if __name__ == "__main__":
     
     quality = jnp.array(quality_raster.values, dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
+    quality = jnp.where(quality == 0, 1e-5, quality)
+    
+    assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality))
+        
     D = np.array(3 * D_m / config["resolution"], dtype=config["dtype"])
 
     # buffer size should be of the order of the dispersal range - half that of the window operation size
@@ -102,16 +107,17 @@ if __name__ == "__main__":
     elasticity = output * quality
     
     # TODO: to remove
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im1 = axes[0].imshow(quality)
-    axes[0].set_title("Quality")
-    fig.colorbar(im1, ax=axes[0], shrink=0.1)
-    im2 = axes[1].imshow(elasticity)
-    axes[1].set_title("Elasticity w.r.t quality")
-    fig.colorbar(im2, ax=axes[1], shrink=0.1)
-    plt.show()
+    # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    # im1 = axes[0].imshow(quality)
+    # axes[0].set_title("Quality")
+    # fig.colorbar(im1, ax=axes[0], shrink=0.1)
+    # im2 = axes[1].imshow(elasticity)
+    # axes[1].set_title("Elasticity w.r.t quality")
+    # fig.colorbar(im2, ax=axes[1], shrink=0.1)
+    # plt.show()
     
     output_raster = deepcopy(quality_raster)
     output_raster.values = elasticity
+    output_raster = postprocess(output_raster)
     output_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
     

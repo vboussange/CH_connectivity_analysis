@@ -1,23 +1,25 @@
 import jax.numpy as jnp
 import equinox as eqx
 from jax import lax
+from jaxscape.lcp_distance import LCPDistance
+from jaxscape.euclidean_distance import EuclideanDistance
 
-GROUP_INFO = {"Mammals": "LCPDistance",
-            "Reptiles": "LCPDistance",
-            "Amphibians": "EuclideanDistance",
-            "Birds": "EuclideanDistance",
-            "Fishes": "LCPDistance",
-            "Plants": "EuclideanDistance",
-            "Bryophytes": "EuclideanDistance",
-            "Spiders": "LCPDistance",
-            "Beetles": "LCPDistance",
-            "Dragonflies": "LCPDistance",
-            "Grasshoppers": "LCPDistance",
-            "Butterflies": "LCPDistance",
-            "Bees": "LCPDistance",
-            "Fungi": "EuclideanDistance",
-            "Gasteropods": "LCPDistance",
-            "Lichens": "EuclideanDistance",},
+GROUP_INFO = {"Mammals": LCPDistance(),
+              "Reptiles": LCPDistance(),
+              "Amphibians": EuclideanDistance(),
+              "Birds": EuclideanDistance(),
+              "Fishes": LCPDistance(),
+              "Plants": EuclideanDistance(),
+              "Bryophytes": EuclideanDistance(),
+              "Spiders": LCPDistance(),
+              "Beetles": LCPDistance(),
+              "Dragonflies": LCPDistance(),
+              "Grasshoppers": LCPDistance(),
+              "Butterflies": LCPDistance(),
+              "Bees": LCPDistance(),
+              "Fungi": EuclideanDistance(),
+              "Gasteropods": LCPDistance(),
+              "Lichens": EuclideanDistance()}
               
 
 @eqx.filter_jit

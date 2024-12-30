@@ -19,7 +19,7 @@ from tqdm import tqdm
 import sys
 sys.path.append("./../../src")
 from preprocessing import compile_group_suitability
-from processing import batch_run_calculation, padding
+from processing import batch_run_calculation, padding, GROUP_INFO
 import xarray as xr
 import rioxarray
 from copy import deepcopy
