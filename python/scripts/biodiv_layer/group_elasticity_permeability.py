@@ -1,10 +1,9 @@
 """
 Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
-TODO: need to verify that the batching and calculation are correct.
 """
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # Use the first GPU
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'  # Use the first GPU
+# Change working directory to the directory of the file
 import jax
 import numpy as np
 from jax import lax
@@ -29,30 +28,32 @@ import rioxarray
 from copy import deepcopy
 os.chdir(Path(__file__).parent)
 
-def Kq(hab_qual, activities, distance, D):
+def qKqT(permeability, hab_qual, activities, distance, D):
     """For simplicitity, we calculate connectivity as the sum of the inverse of the exp of distances."""
 
     grid = GridGraph(activities=activities, 
-                     vertex_weights=hab_qual,
+                     vertex_weights=permeability,
                      nb_active=activities.size)
 
     window_center = jnp.array([[activities.shape[0]//2+1, activities.shape[1]//2+1]])
-    
+    q = grid.array_to_node_values(hab_qual)
     dist = distance(grid, sources=window_center).reshape(-1)
 
     K = jnp.exp(-dist/D) # calculating proximity matrix
     
-    epsilon = K * hab_qual[window_center[0, 0], window_center[0, 1]]
-    epsilon = grid.node_values_to_array(epsilon)
+    qKqT = hab_qual[window_center[0, 0], window_center[0, 1]] * (K.T @ q)
 
-    return epsilon
+    return qKqT
 
 
-Kq_vmap = eqx.filter_vmap(Kq, in_axes=(0,0,None,None))
+qKqT_grad = eqx.filter_jit(eqx.filter_grad(qKqT))
+
+qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
+
 
 if __name__ == "__main__":
     
-    config = {"batch_size": 2**4, # pixels, actual batch size is batch_size**2
+    config = {"batch_size": 1, # pixels, actual batch size is batch_size**2
             "resolution": 100, # meters
             # percentage of the dispersal range, used to calculate landmarks
             # if the dispersal range is 10 pixels and the coarsening factor is 0.3, then the landmarks will be calculated every 2 pixels
@@ -60,9 +61,9 @@ if __name__ == "__main__":
             "coarsening_factor": 0.3,
             "dtype": "float32",
             }
-    
+
     # # TODO: test to remove
-    # GROUP_INFO = {"Plants": EuclideanDistance()}
+    # GROUP_INFO = {"Reptiles": LCPDistance()}
     for group in GROUP_INFO:
         print("Computing elasticity for group:", group)
         distance = GROUP_INFO[group]
@@ -111,17 +112,28 @@ if __name__ == "__main__":
             if not jnp.all(jnp.isnan(permeability_batch)):
                 xy, hab_qual = window_op.eager_iterator(permeability_batch)
                 activities = jnp.ones_like(hab_qual, dtype="bool")
-                raster_buffer = jnp.zeros_like(permeability_batch)
-                res = batch_run_calculation(batch_op, window_op, xy, Kq_vmap, hab_qual, activities, distance, D)
+                permeability = hab_qual
+                res = batch_run_calculation(batch_op, window_op, xy, qKqT_grad_vmap, permeability, hab_qual, activities, distance, D)
                 output = batch_op.update_raster_with_window(xy_batch, output, res, fun=jnp.add)
         
         # unpadding
         output = output[:quality.shape[0], :quality.shape[1]]
         
-        elasticity = output * quality
+        elasticity = output * quality # quality == permeability
+
+        # TODO: to remove
+        # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        # im1 = axes[0].imshow(quality)
+        # axes[0].set_title("Quality")
+        # fig.colorbar(im1, ax=axes[0], shrink=0.1)
+        # im2 = axes[1].imshow(elasticity)
+        # axes[1].set_title("Elasticity w.r.t permeability")
+        # fig.colorbar(im2, ax=axes[1], shrink=0.1)
+        # plt.show()
         
+        # TODO: tif and nc files not consistent
         output_raster = deepcopy(suitability_dataset["mean_suitability"])
         output_raster.values = elasticity
         output_raster = postprocess(output_raster)
-        output_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
+        output_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
         print("Saved elasticity raster at:", output_path / "elasticity_permeability.tif")

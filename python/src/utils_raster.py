@@ -42,3 +42,21 @@ def mask_raster(raster, traits_dataset, masks_dataset):
     
     else:
         return raster
+
+
+def save_to_netcdf(dataset, path, scale_factor):
+    # TODO: to test
+    encoding = {}
+
+    for var_name in dataset.data_vars:
+        # Add compression settings for the variable
+        encoding[var_name] = {
+            "zlib": True,          # Enable compression
+            "complevel": 5,        # Compression level (1–9)
+            "dtype": "int16",      # Specify data type
+            "scale_factor": scale_factor,  # Add scale factor for metadata
+            "add_offset": 0,       # Add offset for metadata
+        }
+
+    # Save the dataset to a NetCDF file with the specified encoding
+    dataset.to_netcdf(path, encoding=encoding)

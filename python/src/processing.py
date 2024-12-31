@@ -1,6 +1,22 @@
 import jax.numpy as jnp
 import equinox as eqx
 from jax import lax
+from jaxscape.lcp_distance import LCPDistance
+from jaxscape.euclidean_distance import EuclideanDistance
+
+GROUP_INFO = {"Mammals": LCPDistance(),
+              "Reptiles": LCPDistance(),
+              "Amphibians": EuclideanDistance(),
+              "Birds": EuclideanDistance(),
+              "Fishes": LCPDistance(),
+              "Vascular_plants": EuclideanDistance(),
+              "Bryophytes": EuclideanDistance(),
+              "Spiders": LCPDistance(),
+              "Insects": LCPDistance(),
+              "Fungi": EuclideanDistance(),
+              "Molluscs": LCPDistance(),
+              "Lichens": EuclideanDistance()}
+              
 
 @eqx.filter_jit
 def batch_run_calculation(batch_op, window_op, xy, fun, *args):
