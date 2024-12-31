@@ -69,3 +69,4 @@ RC = C̄ + C̄'
 # @assert all(RC  ≈ sum(1 ./ A.nzval) * R_resistance)
 
 # THIS is FALSE 
+# TODO: to revise based on Matlab code of Marco Saerens
