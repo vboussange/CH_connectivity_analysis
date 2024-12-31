@@ -26,6 +26,7 @@ elif hostname == "MacBook-Pro-3.wsl.ch":
     # layers = pyogrio.list_layers(SWISSTLMREGIO_PATH)
 
 def get_CH_border():
+    """Get the border of Switzerland in EPSG:2056."""
     # layers = pyogrio.list_layers(SWISSTLMREGIO_BOUNDARIES_PATH)
     gdf = gpd.read_file(SWISSTLMREGIO_BOUNDARIES_PATH, layer="swisstlmregio_landesgebiet")
     return gdf[gdf.icc == "CH"].geometry

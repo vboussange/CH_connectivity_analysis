@@ -2,6 +2,9 @@
 Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
 TODO: need to verify that the batching and calculation are correct.
 """
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'  # Use the first GPU
+
 import jax
 import numpy as np
 from jax import lax
@@ -13,13 +16,11 @@ import jax.random as jr
 from jaxscape.gridgraph import GridGraph
 from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.lcp_distance import LCPDistance
-import pickle
-import rasterio
 
 import equinox as eqx
 from tqdm import tqdm
 import sys
-sys.path.append("./../../src")
+sys.path.append(str(Path(__file__).parent / Path("../../src/")))
 from preprocessing import compile_group_suitability
 from processing import batch_run_calculation, padding, GROUP_INFO
 from postprocessing import postprocess
@@ -52,7 +53,7 @@ qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
 if __name__ == "__main__":
     
-    config = {"batch_size": 2**4, # pixels, actual batch size is batch_size**2
+    config = {"batch_size": 1, # pixels, actual batch size is batch_size**2
             "resolution": 100, # meters
             # percentage of the dispersal range, used to calculate landmarks
             # if the dispersal range is 10 pixels and the coarsening factor is 0.3, then the landmarks will be calculated every 2 pixels
@@ -64,6 +65,7 @@ if __name__ == "__main__":
     # # TODO: test to remove
     # GROUP_INFO = {"Reptiles": LCPDistance()}
     for group in GROUP_INFO:
+        print("Computing elasticity for group:", group)
         distance = GROUP_INFO[group]
 
         output_path = Path("output") / group
@@ -134,3 +136,4 @@ if __name__ == "__main__":
         output_raster.values = elasticity
         output_raster = postprocess(output_raster)
         output_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
+        print("Saved elasticity raster at:", output_path / "elasticity_permeability.tif")
