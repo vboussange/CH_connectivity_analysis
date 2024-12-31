@@ -13,6 +13,8 @@ import jax.random as jr
 from jaxscape.gridgraph import GridGraph
 from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.lcp_distance import LCPDistance
+import pickle
+import rasterio
 
 import equinox as eqx
 from tqdm import tqdm
@@ -50,35 +52,44 @@ qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
 if __name__ == "__main__":
     
-    config = {"batch_size": 2**6, # pixels, actual batch size is batch_size**2
+    config = {"batch_size": 2**4, # pixels, actual batch size is batch_size**2
             "resolution": 100, # meters
-            "coarsening_factor": 0.3, # percentage of the dispersal range, used to calculate landmarks
+            # percentage of the dispersal range, used to calculate landmarks
+            # if the dispersal range is 10 pixels and the coarsening factor is 0.3, then the landmarks will be calculated every 2 pixels
+            # each pixel should be involved by at least one landmark
+            "coarsening_factor": 0.3,
             "dtype": "float32",
             }
 
+    # # TODO: test to remove
+    # GROUP_INFO = {"Reptiles": LCPDistance()}
     for group in GROUP_INFO:
         distance = GROUP_INFO[group]
 
         output_path = Path("output") / group
         output_path.mkdir(parents=True, exist_ok=True)
         
-        quality_raster, _, D_m = compile_group_suitability(group, 
+        suitability_dataset = compile_group_suitability(group, 
                                                         config["resolution"])
-        
-        quality = jnp.array(quality_raster.values, dtype=config["dtype"])
+        D_m = suitability_dataset.attrs["D_m"]
+        quality = jnp.array(suitability_dataset["mean_suitability"].values, dtype=config["dtype"])
         quality = jnp.nan_to_num(quality, nan=0.0)
         quality = jnp.where(quality == 0, 1e-5, quality)
+        assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality)), "Quality values must be between 0 and 1."
         
-        assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality))
-            
+        ## Calculating meta parameters
+        # disepersal in pixels
         D = np.array(D_m / config["resolution"], dtype=config["dtype"])
+        assert D >= 1, "Dispersal range must be greater than 1 pixel."
+        
+        # number of pixels -1 to skip per iteration and that will not be considered as landmarks
         coarsening = int(jnp.ceil(D * config["coarsening_factor"]))
         if coarsening % 2 == 0:
             coarsening += 1
             
         # buffer size should be of the order of the dispersal range - half that of the window operation size
         # size distance is calculated from the center pixel of the window
-        buffer_size = int(3 * D - (coarsening - 1)/2)
+        buffer_size = int(D - (coarsening - 1)/2)
         if buffer_size < 1:
             raise ValueError("Buffer size is too small. Consider decreasing the coarsening factor or decreasing the raster resolution.")
         
@@ -118,8 +129,8 @@ if __name__ == "__main__":
         # fig.colorbar(im2, ax=axes[1], shrink=0.1)
         # plt.show()
         
-        output_raster = deepcopy(quality_raster)
+        # TODO: tif and nc files not consistent
+        output_raster = deepcopy(suitability_dataset["mean_suitability"])
         output_raster.values = elasticity
         output_raster = postprocess(output_raster)
         output_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
-        quality_raster.rio.to_raster(output_path / "quality.tif", compress='lzw')
