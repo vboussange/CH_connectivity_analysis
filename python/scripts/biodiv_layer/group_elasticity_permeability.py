@@ -1,10 +1,9 @@
 """
 Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
-TODO: need to verify that the batching and calculation are correct.
 """
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '1'  # Use the first GPU
-
+# Change working directory to the directory of the file
 import jax
 import numpy as np
 from jax import lax
@@ -27,6 +26,7 @@ from postprocessing import postprocess
 import xarray as xr
 import rioxarray
 from copy import deepcopy
+os.chdir(Path(__file__).parent)
 
 def qKqT(permeability, hab_qual, activities, distance, D):
     """For simplicitity, we calculate connectivity as the sum of the inverse of the exp of distances."""

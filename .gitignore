@@ -8,3 +8,4 @@ Manifest.toml
 *.tif*
 *.json
 .cache/
+stdout/*

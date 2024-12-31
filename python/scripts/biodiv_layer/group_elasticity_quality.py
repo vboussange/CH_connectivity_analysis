@@ -27,6 +27,7 @@ from postprocessing import postprocess
 import xarray as xr
 import rioxarray
 from copy import deepcopy
+os.chdir(Path(__file__).parent)
 
 def Kq(hab_qual, activities, distance, D):
     """For simplicitity, we calculate connectivity as the sum of the inverse of the exp of distances."""
@@ -61,7 +62,7 @@ if __name__ == "__main__":
             }
     
     # # TODO: test to remove
-    GROUP_INFO = {"Plants": EuclideanDistance()}
+    # GROUP_INFO = {"Plants": EuclideanDistance()}
     for group in GROUP_INFO:
         print("Computing elasticity for group:", group)
         distance = GROUP_INFO[group]
