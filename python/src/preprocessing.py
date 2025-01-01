@@ -13,8 +13,6 @@ from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask
 from TraitsCH import TraitsCH
 from NSDM import NSDM
 from EUSDM import EUSDM
-import jax.numpy as jnp
-import pickle 
 
 def compile_species_suitability(species_name, D_m, resolution):
     # loading fine resolution raster
@@ -82,56 +80,59 @@ def compile_group_suitability(group, resolution):
             continue
             # print(f"Failed to load raster for {sp}")
     print(f"Loaded {len(nsdm_rasters)} rasters")
+    if len(nsdm_rasters) == len(eu_sdm_rasters) > 0:
+        # Aggregating rasters
+        nsdm_stack = xr.concat(nsdm_rasters, dim="species")
+        mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename("mean_nsdm")    
+        std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename("std_nsdm")    
 
-    # Aggregating rasters
-    nsdm_stack = xr.concat(nsdm_rasters, dim="species")
-    mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename("mean_nsdm")    
-    std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename("std_nsdm")    
+        eu_sdm_stack = xr.concat(eu_sdm_rasters, dim="species")
+        mean_eu_sdm_suitability = eu_sdm_stack.mean(dim="species").rename("mean_eu_sdm") 
+        std_eu_sdm_suitability = eu_sdm_stack.std(dim="species").rename("std_eu_sdm")    
+        
+        # merging coarse and fine rasters
+        raster_coarse_interp_mean = mean_eu_sdm_suitability.interp_like(mean_ch_sdm_suitability, method="nearest")
+        combined_raster_mean = xr.where(mean_ch_sdm_suitability.notnull(), mean_ch_sdm_suitability, raster_coarse_interp_mean)
+        combined_raster_mean = combined_raster_mean.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
+        combined_raster_mean.rio.set_crs(CRS_CH, inplace=True)
 
-    eu_sdm_stack = xr.concat(eu_sdm_rasters, dim="species")
-    mean_eu_sdm_suitability = eu_sdm_stack.mean(dim="species").rename("mean_eu_sdm") 
-    std_eu_sdm_suitability = eu_sdm_stack.std(dim="species").rename("std_eu_sdm")    
-    
-    # merging coarse and fine rasters
-    raster_coarse_interp_mean = mean_eu_sdm_suitability.interp_like(mean_ch_sdm_suitability, method="nearest")
-    combined_raster_mean = xr.where(mean_ch_sdm_suitability.notnull(), mean_ch_sdm_suitability, raster_coarse_interp_mean)
-    combined_raster_mean = combined_raster_mean.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
-    combined_raster_mean.rio.set_crs(nsdm_rasters[0].rio.crs, inplace=True)
+        raster_coarse_interp_std = std_eu_sdm_suitability.interp_like(std_ch_sdm_suitability, method="nearest")
+        combined_raster_std = xr.where(std_ch_sdm_suitability.notnull(), std_ch_sdm_suitability, raster_coarse_interp_std)
+        combined_raster_std = combined_raster_std.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
+        combined_raster_std.rio.set_crs(CRS_CH, inplace=True)
 
-    raster_coarse_interp_std = std_eu_sdm_suitability.interp_like(std_ch_sdm_suitability, method="nearest")
-    combined_raster_std = xr.where(std_ch_sdm_suitability.notnull(), std_ch_sdm_suitability, raster_coarse_interp_std)
-    combined_raster_std = combined_raster_std.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
-    combined_raster_std.rio.set_crs(nsdm_rasters[0].rio.crs, inplace=True)
+        # Reprojecting to desired resolution and masking out land for aquatic species
+        rast = []
+        for combined_raster, name in zip([combined_raster_mean, combined_raster_std], ["mean_suitability", "std_suitability"]):
+            combined_raster = mask_raster(combined_raster, traits, MasksDataset())
 
-    # Reprojecting to desired resolution and masking out land for aquatic species
-    rast = []
-    for combined_raster, name in zip([combined_raster_mean, combined_raster_std], ["mean_suitability", "std_suitability"]):
-        combined_raster = mask_raster(combined_raster, traits, MasksDataset())
-        combined_raster.rio.set_crs(nsdm_rasters[0].rio.crs, inplace=True)
+            # resampling raster
+            lat_resolution, lon_resolution = calculate_resolution(combined_raster)
+            print(f"Original quality resolution: {lon_resolution/1000:0.3f}km")
+            assert lat_resolution == lon_resolution
+            resampling_factor = int(np.ceil(resolution/lat_resolution))
+            combined_raster = coarsen_raster(combined_raster, resampling_factor)
+            combined_raster = combined_raster.rename(name)
+            combined_raster.rio.set_crs(CRS_CH, inplace=True)
 
-        # resampling raster
-        lat_resolution, lon_resolution = calculate_resolution(combined_raster)
-        print(f"Original quality resolution: {lon_resolution/1000:0.3f}km")
-        assert lat_resolution == lon_resolution
-        resampling_factor = int(np.ceil(resolution/lat_resolution))
-        combined_raster = coarsen_raster(combined_raster, resampling_factor)
-        combined_raster = combined_raster.rename(name)
-        rast.append(combined_raster)
-    
-    # Merging to single dataset and saving
-    concatenated = xr.merge(rast).astype("float32")
-    concatenated.rio.set_crs(nsdm_rasters[0].rio.crs, inplace=True)
-    concatenated.attrs["D_m"] = D_m
-    concatenated.attrs["N_species"] = len(nsdm_rasters)
-    concatenated.attrs["species"] = [rast.name for rast in nsdm_rasters]
+            rast.append(combined_raster)
+        
+        # Merging to single dataset and saving
+        concatenated = xr.merge(rast).astype("float32")
+        concatenated.rio.set_crs(CRS_CH, inplace=True)
+        concatenated.attrs["D_m"] = D_m
+        concatenated.attrs["N_species"] = len(nsdm_rasters)
+        concatenated.attrs["species"] = [rast.name for rast in nsdm_rasters]
 
 
-    concatenated.to_netcdf(cache_path)
-    # save_to_netcdf(concatenated, cache_path, scale_factor=1000)
-    # with open(cache_path, "wb") as f:
-    #     pickle.dump((mean_suitability, std_suitability, D_m), f)
-    
-    return concatenated
+        concatenated.to_netcdf(cache_path)
+        # save_to_netcdf(concatenated, cache_path, scale_factor=1000)
+        # with open(cache_path, "wb") as f:
+        #     pickle.dump((mean_suitability, std_suitability, D_m), f)
+        
+        return concatenated
+    else:
+        raise ValueError("No suitability raster found for group")
 
 # TODO: fix epsilon
 def compile_resistance(quality, barriers, eps =  1e-5):

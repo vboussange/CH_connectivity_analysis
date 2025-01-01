@@ -79,7 +79,7 @@ if __name__ == "__main__":
         assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality)), "Quality values must be between 0 and 1."
         
         ## Calculating meta parameters
-        # disepersal in pixels
+        # dispersal in pixels
         D = np.array(D_m / config["resolution"], dtype=config["dtype"])
         assert D >= 1, "Dispersal range must be greater than 1 pixel."
         
