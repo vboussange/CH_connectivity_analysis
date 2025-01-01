@@ -34,7 +34,8 @@ def qKqT(permeability, hab_qual, activities, distance, D):
 
     grid = GridGraph(activities=activities, 
                      vertex_weights=permeability,
-                     nb_active=activities.size)
+                     nb_active=activities.size,
+                     fun= lambda x, y: (x + y)/2)
 
     window_center = jnp.array([[activities.shape[0]//2+1, activities.shape[1]//2+1]])
     q = grid.array_to_node_values(hab_qual)
@@ -44,9 +45,7 @@ def qKqT(permeability, hab_qual, activities, distance, D):
     # between a single source to all pixels. However, if the graph is symmetric,
     # then the distance from all pixels to the window_center is the same as the
     # distance from the window_center to all pixels we should make sure that the
-    # graph is symmetric, which is currently not the case as the adjacency
-    # matrix has `fun` defaulting to target pixel
-    # TODO: modify graph so that it is symetric
+    # graph is symmetric
     dist = distance(grid, sources=window_center).reshape(-1)
 
     K = jnp.exp(-dist/D) # calculating proximity matrix
@@ -73,7 +72,7 @@ if __name__ == "__main__":
             }
 
     # # TODO: test to remove
-    GROUP_INFO = {"Vascular_plants": EuclideanDistance()}
+    # GROUP_INFO = {"Vascular_plants": EuclideanDistance()}
     for group in GROUP_INFO:
         print("Computing elasticity for group:", group)
         distance = GROUP_INFO[group]

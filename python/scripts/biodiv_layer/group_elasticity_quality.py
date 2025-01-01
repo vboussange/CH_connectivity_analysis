@@ -34,7 +34,8 @@ def Kq(hab_qual, activities, distance, D):
 
     grid = GridGraph(activities=activities, 
                      vertex_weights=hab_qual,
-                     nb_active=activities.size)
+                     nb_active=activities.size,
+                     fun= lambda x, y: (x + y)/2)
 
     window_center = jnp.array([[activities.shape[0]//2+1, activities.shape[1]//2+1]])
     
