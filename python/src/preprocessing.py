@@ -69,8 +69,8 @@ def compile_group_suitability(group, resolution):
     eu_sdm_rasters = []
     for sp in species:
         try:
-            raster_fine = nsdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
             raster_coarse = eusdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
+            raster_fine = nsdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
             raster_coarse = crop_raster(raster_coarse.squeeze(), switzerland_buffer)
             minx, miny, maxx, maxy = raster_coarse.rio.bounds()
             raster_fine = raster_fine.rio.pad_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
