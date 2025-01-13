@@ -15,7 +15,7 @@ class NSDM:
     def load_raster(self, species_name, resolution=100):
         formatted_species_name = species_name.replace(" ", ".")
         
-        filename_pattern = f"{resolution}m_{formatted_species_name}_reg_covariate_ensemble.tif"
+        filename_pattern = f"*{formatted_species_name}_reg_covariate_ensemble.tif"
         
         raster_file = list(NSDM_PATH[resolution].glob(filename_pattern))
         
