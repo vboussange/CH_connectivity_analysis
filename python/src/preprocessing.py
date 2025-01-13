@@ -9,7 +9,7 @@ from shapely.geometry import box
 from pathlib import Path
 import numpy as np
 from masks import MasksDataset, get_CH_border
-from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster, save_to_netcdf, CRS_CH
+from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster, CRS_CH, fill_na_with_nearest
 from TraitsCH import TraitsCH
 from NSDM import NSDM
 from EUSDM import EUSDM
@@ -61,49 +61,32 @@ def compile_group_suitability(group, resolution):
     D_m = np.mean([traits.get_D(sp) for sp in species]) * 1000 # convert to meters
     switzerland_boundary = get_CH_border()
     switzerland_buffer = switzerland_boundary.buffer(D_m)
+    minx, miny, maxx, maxy = switzerland_buffer.total_bounds
 
     # Loading fine and coarse resolution rasters
     nsdm_dataset = NSDM()
-    eusdm_dataset = EUSDM()
     nsdm_rasters = []
-    eu_sdm_rasters = []
     for sp in species:
         try:
-            raster_coarse = eusdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
             raster_fine = nsdm_dataset.load_raster(sp, resolution=resolution).rio.reproject(CRS_CH)
-            raster_coarse = crop_raster(raster_coarse.squeeze(), switzerland_buffer)
-            minx, miny, maxx, maxy = raster_coarse.rio.bounds()
             raster_fine = raster_fine.rio.pad_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
             nsdm_rasters.append(raster_fine)
-            eu_sdm_rasters.append(raster_coarse)
-        except:
+        except Exception as e:
+            print(e)
             continue
             # print(f"Failed to load raster for {sp}")
     print(f"Loaded {len(nsdm_rasters)} rasters")
-    if len(nsdm_rasters) == len(eu_sdm_rasters) > 0:
+    if len(nsdm_rasters) > 0:
         # Aggregating rasters
         nsdm_stack = xr.concat(nsdm_rasters, dim="species")
-        mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename("mean_nsdm")    
-        std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename("std_nsdm")    
-
-        eu_sdm_stack = xr.concat(eu_sdm_rasters, dim="species")
-        mean_eu_sdm_suitability = eu_sdm_stack.mean(dim="species").rename("mean_eu_sdm") 
-        std_eu_sdm_suitability = eu_sdm_stack.std(dim="species").rename("std_eu_sdm")
-        
-        # merging coarse and fine rasters
-        raster_coarse_interp_mean = mean_eu_sdm_suitability.interp_like(mean_ch_sdm_suitability, method="nearest")
-        combined_raster_mean = xr.where(mean_ch_sdm_suitability.notnull(), mean_ch_sdm_suitability, raster_coarse_interp_mean)
-        combined_raster_mean = combined_raster_mean.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
-        combined_raster_mean.rio.set_crs(CRS_CH, inplace=True)
-
-        raster_coarse_interp_std = std_eu_sdm_suitability.interp_like(std_ch_sdm_suitability, method="nearest")
-        combined_raster_std = xr.where(std_ch_sdm_suitability.notnull(), std_ch_sdm_suitability, raster_coarse_interp_std)
-        combined_raster_std = combined_raster_std.rename(species.iloc[0]) # TODO: maybe fix, needed for masking
-        combined_raster_std.rio.set_crs(CRS_CH, inplace=True)
+        mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename(species.iloc[0])    
+        std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename(species.iloc[0])    
 
         # Reprojecting to desired resolution and masking out land for aquatic species
         rast = []
-        for combined_raster, name in zip([combined_raster_mean, combined_raster_std], ["mean_suitability", "std_suitability"]):
+        for combined_raster, name in zip([mean_ch_sdm_suitability, std_ch_sdm_suitability], ["mean_suitability", "std_suitability"]):
+            # interpolating data
+            combined_raster = fill_na_with_nearest(combined_raster)
             combined_raster = mask_raster(combined_raster, traits, MasksDataset())
             combined_raster = combined_raster.rename(name)
             rast.append(combined_raster)
@@ -113,7 +96,7 @@ def compile_group_suitability(group, resolution):
         concatenated.rio.set_crs(CRS_CH, inplace=True)
         concatenated.attrs["D_m"] = D_m
         concatenated.attrs["N_species"] = len(nsdm_rasters)
-        concatenated.attrs["species"] = [rast.name for rast in nsdm_rasters]
+        concatenated.attrs["species"] = [r.name for r in nsdm_rasters]
 
         concatenated.to_netcdf(cache_path)
         # save_to_netcdf(concatenated, cache_path, scale_factor=1000)

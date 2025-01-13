@@ -2,6 +2,7 @@ import xarray as xr
 import rioxarray
 import geopandas as gpd
 import numpy as np
+from scipy import ndimage
 CRS_CH = "EPSG:2056" # https://epsg.io/2056
 
 def calculate_resolution(raster):
@@ -72,3 +73,33 @@ def save_to_netcdf(dataset, path, scale_factor):
 
     # Save the dataset to a NetCDF file with the specified encoding
     dataset.to_netcdf(path, encoding=encoding)
+    
+def fill_na_with_nearest(da: xr.DataArray) -> xr.DataArray:
+    """
+    Fill NA values by assigning each NA cell the value of its nearest non-NA cell
+    in Euclidean distance, preserving original non-NA cells.
+    """
+    data_np = da.values
+    mask = np.isnan(data_np)
+    
+    # distance_transform_edt gives us for each point in `mask`:
+    #   - the distance to the nearest False (i.e., nearest valid)
+    #   - the indices of that nearest valid
+    # So first invert mask to mark non-NA as False, NA as True:
+    dist, (inds_y, inds_x, *other_inds) = ndimage.distance_transform_edt(
+        mask,
+        return_distances=True,
+        return_indices=True
+    )
+    # NOTE: If da has more than 2 dimensions, you get multiple index arrays.
+    # E.g. for 3D, you'll get (inds_z, inds_y, inds_x).
+    # We'll just keep a conceptual example for 2D or shape out as needed.
+    
+    filled_np = data_np.copy()
+    # Fill the NA cells using the nearest valid cell’s value
+    filled_np[mask] = data_np[inds_y[mask], inds_x[mask]]
+    
+    # Return a new DataArray with the same coords, etc.
+    filled_da = da.copy()
+    filled_da.values = filled_np
+    return filled_da
