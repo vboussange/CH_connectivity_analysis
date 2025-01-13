@@ -62,17 +62,17 @@ qKqT_grad_vmap = eqx.filter_vmap(qKqT_grad, in_axes=(0, 0, 0, None, None))
 
 if __name__ == "__main__":
     
-    config = {"batch_size": 1, # pixels, actual batch size is batch_size**2
+    config = {"batch_size": 16, # pixels, actual batch size is batch_size**2
             "resolution": 100, # meters
             # percentage of the dispersal range, used to calculate landmarks
             # if the dispersal range is 10 pixels and the coarsening factor is 0.3, then the landmarks will be calculated every 2 pixels
             # each pixel should be involved by at least one landmark
-            "coarsening_factor": 0.3,
+            "coarsening_factor": 0.,
             "dtype": "float32",
             }
 
     # # TODO: test to remove
-    # GROUP_INFO = {"Vascular_plants": EuclideanDistance()}
+    GROUP_INFO = {"Birds": LCPDistance()}
     for group in GROUP_INFO:
         print("Computing elasticity for group:", group)
         distance = GROUP_INFO[group]
@@ -81,6 +81,7 @@ if __name__ == "__main__":
                 output_path = Path("output") / group
                 output_path.mkdir(parents=True, exist_ok=True)
                 
+                # TODO: you need to load raster at 25 m and then change resolution to D_m / 20
                 suitability_dataset = compile_group_suitability(group, 
                                                                 config["resolution"])
                 D_m = suitability_dataset.attrs["D_m"]
@@ -88,10 +89,12 @@ if __name__ == "__main__":
                 quality = jnp.nan_to_num(quality, nan=0.0)
                 quality = jnp.where(quality == 0, 1e-5, quality)
                 assert jnp.all(quality > 0) and jnp.all(quality < 1) and jnp.all(jnp.isfinite(quality)), "Quality values must be between 0 and 1."
+                print("D_m", D_m)
                 
                 ## Calculating meta parameters
                 # disepersal in pixels
                 D = np.array(D_m / config["resolution"], dtype=config["dtype"])
+                # D = 50
                 assert D >= 1, "Dispersal range must be greater than 1 pixel."
                 
                 # number of pixels -1 to skip per iteration and that will not be considered as landmarks

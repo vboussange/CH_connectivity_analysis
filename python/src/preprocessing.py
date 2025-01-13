@@ -47,7 +47,7 @@ def compile_species_suitability(species_name, D_m, resolution):
 
 
 def compile_group_suitability(group, resolution):
-    cache_path = Path(f".cache/{group}/suitability.nc")
+    cache_path = Path(__file__).parent / Path(f"../.cache/{group}/suitability.nc")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         return xr.open_dataset(cache_path)
