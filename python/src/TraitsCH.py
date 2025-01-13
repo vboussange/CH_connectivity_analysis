@@ -5,7 +5,6 @@ from shapely.geometry import box
 from pathlib import Path
 import netCDF4
 import pandas as pd
-import swissTLMRegio
 
 TRAITS_CH_PATH = Path(__file__).parent / '../../../data/TraitsCH/dispersal_focus/s2z_compiled'
 GUILDS_EU_PATH = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'

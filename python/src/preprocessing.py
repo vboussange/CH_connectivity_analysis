@@ -8,7 +8,7 @@ import xarray as xr
 from shapely.geometry import box
 from pathlib import Path
 import numpy as np
-from swissTLMRegio import MasksDataset, get_CH_border
+from masks import MasksDataset, get_CH_border
 from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster, save_to_netcdf, CRS_CH
 from TraitsCH import TraitsCH
 from NSDM import NSDM
@@ -70,7 +70,7 @@ def compile_group_suitability(group, resolution):
     for sp in species:
         try:
             raster_coarse = eusdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
-            raster_fine = nsdm_dataset.load_raster(sp).rio.reproject(CRS_CH)
+            raster_fine = nsdm_dataset.load_raster(sp, resolution=resolution).rio.reproject(CRS_CH)
             raster_coarse = crop_raster(raster_coarse.squeeze(), switzerland_buffer)
             minx, miny, maxx, maxy = raster_coarse.rio.bounds()
             raster_fine = raster_fine.rio.pad_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
@@ -88,7 +88,7 @@ def compile_group_suitability(group, resolution):
 
         eu_sdm_stack = xr.concat(eu_sdm_rasters, dim="species")
         mean_eu_sdm_suitability = eu_sdm_stack.mean(dim="species").rename("mean_eu_sdm") 
-        std_eu_sdm_suitability = eu_sdm_stack.std(dim="species").rename("std_eu_sdm")    
+        std_eu_sdm_suitability = eu_sdm_stack.std(dim="species").rename("std_eu_sdm")
         
         # merging coarse and fine rasters
         raster_coarse_interp_mean = mean_eu_sdm_suitability.interp_like(mean_ch_sdm_suitability, method="nearest")
@@ -105,16 +105,7 @@ def compile_group_suitability(group, resolution):
         rast = []
         for combined_raster, name in zip([combined_raster_mean, combined_raster_std], ["mean_suitability", "std_suitability"]):
             combined_raster = mask_raster(combined_raster, traits, MasksDataset())
-
-            # resampling raster
-            lat_resolution, lon_resolution = calculate_resolution(combined_raster)
-            print(f"Original quality resolution: {lon_resolution/1000:0.3f}km")
-            assert lat_resolution == lon_resolution
-            resampling_factor = int(np.ceil(resolution/lat_resolution))
-            combined_raster = coarsen_raster(combined_raster, resampling_factor)
             combined_raster = combined_raster.rename(name)
-            combined_raster.rio.set_crs(CRS_CH, inplace=True)
-
             rast.append(combined_raster)
         
         # Merging to single dataset and saving
@@ -123,7 +114,6 @@ def compile_group_suitability(group, resolution):
         concatenated.attrs["D_m"] = D_m
         concatenated.attrs["N_species"] = len(nsdm_rasters)
         concatenated.attrs["species"] = [rast.name for rast in nsdm_rasters]
-
 
         concatenated.to_netcdf(cache_path)
         # save_to_netcdf(concatenated, cache_path, scale_factor=1000)

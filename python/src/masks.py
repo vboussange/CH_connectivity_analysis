@@ -1,8 +1,6 @@
 import pyproj
 pyproj.datadir.set_data_dir("/Users/victorboussange/projects/connectivity/connectivity_analysis/code/python/.env/share/proj/")
 
-
-
 import geopandas as gpd
 import xarray as xr
 import rioxarray
@@ -110,6 +108,9 @@ class MasksDataset:
         self.masks = {
             "Aqu": AquaticMaskDataset(),
             "Ter": TerrestrialMaskDataset(),
+            "Arb": TerrestrialMaskDataset(),
+            "Fos": TerrestrialMaskDataset(),
+            "Aer": TerrestrialMaskDataset(),
             # "Road": RoadMaskDataset(buffer_distance=buffer_distance)  # Example of another mask
         }
 

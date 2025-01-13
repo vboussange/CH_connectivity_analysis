@@ -1,7 +1,7 @@
 import xarray as xr
 import rioxarray
 import geopandas as gpd
-
+import numpy as np
 CRS_CH = "EPSG:2056" # https://epsg.io/2056
 
 def calculate_resolution(raster):
@@ -11,8 +11,20 @@ def calculate_resolution(raster):
 
 def coarsen_raster(raster, resampling_factor):
     raster_coarse = raster.coarsen(x=resampling_factor, y=resampling_factor, boundary='trim').mean()
-    raster_coarse.rio.set_crs(raster.rio.crs)
+    raster_coarse.rio.set_crs(raster.rio.crs, inplace=True)
     return raster_coarse
+
+def upscale(raster, resolution):
+    lat_resolution, lon_resolution = calculate_resolution(raster)
+    assert lat_resolution == lon_resolution
+    resampling_factor = int(np.ceil(resolution/lat_resolution))
+    raster = coarsen_raster(raster, resampling_factor)
+    return raster
+
+def downscale(raster, ref_raster):
+    raster = raster.interp_like(ref_raster, method="nearest")
+    raster.rio.set_crs(ref_raster.rio.crs, inplace=True)
+    return raster
     
 def load_raster(path, scale=True):
     # Load the raster file
@@ -36,7 +48,7 @@ def crop_raster(raster, buffer):
 def mask_raster(raster, traits_dataset, masks_dataset):
     sp_name = raster.name
     hab = traits_dataset.get_habitat(sp_name)
-    if hab == "Aqu" or hab == "Ter":
+    if hab in masks_dataset.masks.keys():
         mask = masks_dataset[hab]
         return raster.rio.clip(mask, all_touched=True, drop=True)
     
