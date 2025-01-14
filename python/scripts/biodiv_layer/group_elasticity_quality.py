@@ -16,8 +16,6 @@ from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_quality_vmap
 from copy import deepcopy
 
 import warnings
-
-# Suppress specific warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -27,11 +25,8 @@ from processing import batch_run_calculation, padding, GROUP_INFO
 from utils_raster import upscale, downscale, crop_raster, calculate_resolution
 from masks import get_CH_border
 
-
-
 def proximity(dist):
     return jnp.exp(-dist) / jnp.sum(jnp.exp(-dist))
-
 
 def run_elasticity_analysis_for_group(group, config):
     """
@@ -41,7 +36,7 @@ def run_elasticity_analysis_for_group(group, config):
     if isinstance(distance_fn, EuclideanDistance):
         return
 
-    output_path = Path("output") / group
+    output_path = Path(__file__).parent / Path("output") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
@@ -85,9 +80,9 @@ def run_elasticity_analysis_for_group(group, config):
 
 def main():
     config = {
-        "batch_size": 16,
+        "batch_size": 32,
         "dtype": "float32",
-        "analysis_precision": 5e-2,  # percentage of the dispersal range
+        "analysis_precision": 1e-1,  # percentage of the dispersal range
         "resolution": 25            # meters
     }
 

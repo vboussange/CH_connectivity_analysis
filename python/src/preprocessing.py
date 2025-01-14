@@ -13,6 +13,7 @@ from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask
 from TraitsCH import TraitsCH
 from NSDM import NSDM
 from EUSDM import EUSDM
+from tqdm import tqdm
 
 def compile_species_suitability(species_name, D_m, resolution):
     # loading fine resolution raster
@@ -50,7 +51,10 @@ def compile_group_suitability(group, resolution):
     cache_path = Path(__file__).parent / Path(f"../.cache/{group}/suitability.nc")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
-        return xr.open_dataset(cache_path)
+        concatenated = xr.open_dataset(cache_path)
+        res_lat, res_lon = calculate_resolution(concatenated)
+        if res_lat == res_lon == resolution:
+            return concatenated
     
     traits = TraitsCH()
     species = traits.get_all_species_from_group(group)
@@ -66,9 +70,14 @@ def compile_group_suitability(group, resolution):
     # Loading fine and coarse resolution rasters
     nsdm_dataset = NSDM()
     nsdm_rasters = []
-    for sp in species:
+    for sp in tqdm(species, 
+                   miniters=max(1, len(species)//100),
+                    desc="Raster loading progress",
+                   ):
         try:
             raster_fine = nsdm_dataset.load_raster(sp, resolution=resolution).rio.reproject(CRS_CH)
+            res_lat, res_lon = calculate_resolution(raster_fine)
+            assert res_lat == res_lon == resolution, f"Resolution mismatch for {sp}: {res_lat}x{res_lon}"
             raster_fine = raster_fine.rio.pad_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
             nsdm_rasters.append(raster_fine)
         except Exception as e:
@@ -78,7 +87,7 @@ def compile_group_suitability(group, resolution):
     print(f"Loaded {len(nsdm_rasters)} rasters")
     if len(nsdm_rasters) > 0:
         # Aggregating rasters
-        nsdm_stack = xr.concat(nsdm_rasters, dim="species")
+        nsdm_stack = xr.concat(nsdm_rasters, dim="species", join="left")
         mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename(species.iloc[0])    
         std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename(species.iloc[0])    
 
@@ -93,6 +102,7 @@ def compile_group_suitability(group, resolution):
         
         # Merging to single dataset and saving
         concatenated = xr.merge(rast).astype("float32")
+        concatenated = concatenated.rio.clip(switzerland_buffer, all_touched=True, drop=True)
         concatenated.rio.set_crs(CRS_CH, inplace=True)
         concatenated.attrs["D_m"] = D_m
         concatenated.attrs["N_species"] = len(nsdm_rasters)

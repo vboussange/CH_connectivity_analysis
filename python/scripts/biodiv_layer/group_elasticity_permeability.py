@@ -16,7 +16,6 @@ from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_permeability_vm
 from copy import deepcopy
 import warnings
 
-# Suppress specific warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -37,7 +36,7 @@ def run_elasticity_analysis_for_group(group, config):
     if isinstance(distance_fn, EuclideanDistance):
         return
 
-    output_path = Path("output") / group
+    output_path = Path(__file__).parent / Path("output") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
@@ -78,12 +77,11 @@ def run_elasticity_analysis_for_group(group, config):
     elasticity_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
     print("Saved elasticity raster at:", output_path / "elasticity_permeability.tif")
 
-
 def main():
     config = {
-        "batch_size": 16,
+        "batch_size": 32,
         "dtype": "float32",
-        "analysis_precision": 5e-2,  # percentage of the dispersal range
+        "analysis_precision": 1e-1,  # percentage of the dispersal range
         "resolution": 25            # meters
     }
 
@@ -93,7 +91,6 @@ def main():
             run_elasticity_analysis_for_group(group, config)
         except Exception as e:
             print(f"Failed to compute elasticity for group {group}: {e}")
-
 
 if __name__ == "__main__":
     main()
