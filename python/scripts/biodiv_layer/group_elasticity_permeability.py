@@ -14,6 +14,8 @@ from pathlib import Path
 from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_permeability_vmap
 from copy import deepcopy
+import git
+
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -35,8 +37,9 @@ def run_elasticity_analysis_for_group(group, config):
     distance_fn = GROUP_INFO[group]
     if isinstance(distance_fn, EuclideanDistance):
         return
-
-    output_path = Path(__file__).parent / Path("output") / group
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.git.rev_parse(repo.head, short=True)
+    output_path = Path(__file__).parent / Path(f"results/{sha}") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])

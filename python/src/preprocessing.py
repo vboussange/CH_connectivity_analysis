@@ -47,6 +47,9 @@ def compile_species_suitability(species_name, D_m, resolution):
     return combined_raster
 
 def compile_group_suitability(group, resolution):
+    """
+    Incrementally compute mean and std of the suitability rasters for all species in a taxonomic group.
+    """
     cache_path = Path(__file__).parent / Path(f"../.cache/{group}/suitability_{resolution}m.nc")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
@@ -54,67 +57,109 @@ def compile_group_suitability(group, resolution):
         res_lat, res_lon = calculate_resolution(concatenated)
         if res_lat == res_lon == resolution:
             return concatenated
-    
+
     traits = TraitsCH()
     species = traits.get_all_species_from_group(group)
     if len(species) == 0:
         raise ValueError(f"No data found for group {group}")
     print(f"Group {group} has {len(species)} species")
     
-    D_m = np.mean([traits.get_D(sp) for sp in species]) * 1000 # convert to meters
+    # Calculate buffer distance, get Swiss boundary, and buffer
+    D_m = np.mean([traits.get_D(sp) for sp in species]) * 1000  # convert to meters
     switzerland_boundary = get_CH_border()
     switzerland_buffer = switzerland_boundary.buffer(D_m)
     minx, miny, maxx, maxy = switzerland_buffer.total_bounds
 
-    # Loading fine and coarse resolution rasters
     nsdm_dataset = NSDM()
-    nsdm_rasters = []
-    for sp in tqdm(species, 
-                   miniters=max(1, len(species)//100),
-                    desc="Raster loading progress",
-                   ):
+
+    # Initialize aggregators
+    sum_raster = None
+    sumsq_raster = None
+    valid_count = None
+    loaded_species = []
+
+    ref_raster = None  # This will be our alignment reference
+
+    for sp in tqdm(
+        species,
+        miniters=max(1, len(species)//100),
+        desc="Raster loading progress",
+    ):
         try:
-            raster_fine = nsdm_dataset.load_raster(sp, resolution=resolution).rio.reproject(CRS_CH)
+            # Load the raster at the desired resolution
+            raster_fine = nsdm_dataset.load_raster(sp, resolution=resolution)
+            # Ensure it has the correct CRS
+            raster_fine = raster_fine.rio.reproject(CRS_CH)
+            
+            # Check resolution
             res_lat, res_lon = calculate_resolution(raster_fine)
             assert res_lat == res_lon == resolution, f"Resolution mismatch for {sp}: {res_lat}x{res_lon}"
+            
+            # Pad so that each species raster has the same bounding box
             raster_fine = raster_fine.rio.pad_box(minx=minx, miny=miny, maxx=maxx, maxy=maxy)
-            nsdm_rasters.append(raster_fine)
+
+            # The first successfully loaded raster becomes our reference
+            if ref_raster is None:
+                ref_raster = raster_fine
+            else:
+                # Reproject subsequent rasters to match the reference
+                raster_fine = raster_fine.rio.reproject_match(ref_raster)
+            
+            # Convert to float32 to save memory
+            raster_fine = raster_fine.astype("float32")
+
+            # If this is the first time, initialize sum_raster, sumsq_raster, valid_count
+            if sum_raster is None:
+                sum_raster = raster_fine.fillna(0.0)
+                sumsq_raster = (raster_fine ** 2).fillna(0.0)
+                valid_count = xr.where(raster_fine.notnull(), 1, 0)
+            else:
+                # Accumulate partial sums
+                sum_raster = sum_raster + raster_fine.fillna(0.0)
+                sumsq_raster = sumsq_raster + (raster_fine.fillna(0.0) ** 2)
+                valid_count = valid_count + xr.where(raster_fine.notnull(), 1, 0)
+
+            loaded_species.append(sp)
+
         except Exception as e:
-            print(e)
+            print(f"Failed to load raster for {sp}: {e}")
             continue
-            # print(f"Failed to load raster for {sp}")
-    print(f"Loaded {len(nsdm_rasters)} rasters")
-    if len(nsdm_rasters) > 0:
-        # Aggregating rasters
-        nsdm_stack = xr.concat(nsdm_rasters, dim="species", join="left")
-        mean_ch_sdm_suitability = nsdm_stack.mean(dim="species").squeeze("band").rename(species.iloc[0])    
-        std_ch_sdm_suitability = nsdm_stack.std(dim="species").squeeze("band").rename(species.iloc[0])    
 
-        # Reprojecting to desired resolution and masking out land for aquatic species
-        rast = []
-        for combined_raster, name in zip([mean_ch_sdm_suitability, std_ch_sdm_suitability], ["mean_suitability", "std_suitability"]):
-            # interpolating data
-            combined_raster = fill_na_with_nearest(combined_raster)
-            combined_raster = mask_raster(combined_raster, traits, MasksDataset())
-            combined_raster = combined_raster.rename(name)
-            rast.append(combined_raster)
-        
-        # Merging to single dataset and saving
-        concatenated = xr.merge(rast).astype("float32")
-        concatenated = concatenated.rio.clip(switzerland_buffer, all_touched=True, drop=True)
-        concatenated.rio.set_crs(CRS_CH, inplace=True)
-        concatenated.attrs["D_m"] = D_m
-        concatenated.attrs["N_species"] = len(nsdm_rasters)
-        concatenated.attrs["species"] = [r.name for r in nsdm_rasters]
-
-        concatenated.to_netcdf(cache_path)
-        # save_to_netcdf(concatenated, cache_path, scale_factor=1000)
-        # with open(cache_path, "wb") as f:
-        #     pickle.dump((mean_suitability, std_suitability, D_m), f)
-        
-        return concatenated
-    else:
+    # If we did not manage to load any rasters, abort
+    if not loaded_species:
         raise ValueError("No suitability raster found for group")
+
+    print(f"Loaded {len(loaded_species)} rasters successfully.")
+
+    # Compute mean and standard deviation
+    # Avoid dividing by zero in places where valid_count = 0
+    mean_raster = (sum_raster / valid_count.where(valid_count != 0)).where(valid_count != 0)
+    var_raster = (sumsq_raster / valid_count.where(valid_count != 0)) - (mean_raster ** 2)
+    std_raster = np.sqrt(var_raster.clip(min=0))  # clip negative rounding errors
+
+    # Final fill (nearest), mask, rename, and squeeze the band dimension
+    mean_raster = fill_na_with_nearest(mean_raster)
+    mean_raster = mask_raster(mean_raster.rename(loaded_species[0]), traits, MasksDataset()).rename("mean_suitability")
+
+    std_raster = fill_na_with_nearest(std_raster)
+    std_raster = mask_raster(std_raster.rename(loaded_species[0]), traits, MasksDataset()).rename("std_suitability")
+
+    # Merge into a single dataset
+    concatenated = xr.merge([mean_raster, std_raster]).astype("float32")
+
+    # Clip to Switzerland + buffer
+    concatenated = concatenated.rio.clip(switzerland_buffer, all_touched=True, drop=True)
+    concatenated.rio.set_crs(CRS_CH, inplace=True)
+
+    # Store metadata
+    concatenated.attrs["D_m"] = D_m
+    concatenated.attrs["N_species"] = len(loaded_species)
+    concatenated.attrs["species"] = loaded_species
+
+    # Save to NetCDF
+    concatenated.to_netcdf(cache_path)
+
+    return concatenated
 
 # TODO: fix epsilon
 def compile_resistance(quality, barriers, eps =  1e-5):

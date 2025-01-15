@@ -1,6 +1,6 @@
 """
-Calculating the elasticity of habitat quality with respect to permeability using Jaxscape.
-TODO: need to verify that the batching and calculation are correct.
+Calculating the elasticity of habitat quality with respect to quality for
+all taxonomic groups in `jaxscape`.
 """
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # Use the first GPU
@@ -14,8 +14,10 @@ from pathlib import Path
 from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_quality_vmap
 from copy import deepcopy
+import git
 
 import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -35,8 +37,9 @@ def run_elasticity_analysis_for_group(group, config):
     distance_fn = GROUP_INFO[group]
     if isinstance(distance_fn, EuclideanDistance):
         return
-
-    output_path = Path(__file__).parent / Path("output") / group
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.git.rev_parse(repo.head, short=True)
+    output_path = Path(__file__).parent / Path(f"results/{sha}") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
@@ -74,8 +77,8 @@ def run_elasticity_analysis_for_group(group, config):
     output_raster = downscale(output_raster, suitability_dataset["mean_suitability"])
     output_raster = crop_raster(output_raster, switzerland_boundary)
     elasticity_raster = output_raster * suitability_dataset["mean_suitability"]
-    elasticity_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
-    print("Saved elasticity raster at:", output_path / "elasticity_permeability.tif")
+    elasticity_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
+    print("Saved elasticity raster at:", output_path / "elasticity_quality.tif")
 
 
 def main():
@@ -92,7 +95,6 @@ def main():
             run_elasticity_analysis_for_group(group, config)
         except Exception as e:
             print(f"Failed to compute elasticity for group {group}: {e}")
-
 
 if __name__ == "__main__":
     main()

@@ -29,16 +29,23 @@ def downscale(raster, ref_raster):
     
 def load_raster(path, scale=True):
     # Load the raster file
-    raster = rioxarray.open_rasterio(path, mask_and_scale=True)
-    raster = raster.drop_vars(["band"]) # we keep `spatial_ref` var. as it contains crs data
-    raster = raster.rename(path.parent.stem)
-    if scale:
-        if (raster.max() > 1) & (raster.min() < 100):
-            print("Rescaling habitat quality between 0 and 1")
-            raster = raster / 100.
-        else:
-            raise ValueError("raster values are not in the expected range")
-    return raster
+    with rioxarray.open_rasterio(path, mask_and_scale=True) as raster:
+            if "band" in raster.dims and raster.sizes["band"] == 1:
+                raster = raster.squeeze("band", drop=True)
+            raster = raster.rename(path.parent.stem)
+
+            if scale:
+                raster_max = raster.max().item()
+                raster_min = raster.min().item()
+
+                if (raster_max > 1) & (raster_min < 100):
+                    print("Rescaling habitat quality between 0 and 1")
+                    raster = raster / 100.  # Scale values
+                else:
+                    raise ValueError("Raster values are not in the expected range")
+            
+            # Return a copy of the raster to ensure the file handle can be closed
+            return raster.copy()
 
 def crop_raster(raster, buffer):
     buffered_gdf = gpd.GeoDataFrame(geometry=buffer)
