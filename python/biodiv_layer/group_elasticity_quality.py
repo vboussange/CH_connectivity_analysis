@@ -11,7 +11,6 @@ import xarray as xr
 import rioxarray
 import jax.numpy as jnp
 from pathlib import Path
-from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_quality_vmap
 from copy import deepcopy
 import git
