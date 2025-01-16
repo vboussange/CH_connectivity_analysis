@@ -11,7 +11,6 @@ import xarray as xr
 import rioxarray
 import jax.numpy as jnp
 from pathlib import Path
-from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_quality_vmap
 from copy import deepcopy
 import git
@@ -22,8 +21,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 sys.path.append(str(Path(__file__).parent / Path("../src/")))
-from preprocessing import compile_group_suitability, CRS_CH
-from processing import batch_run_calculation, padding, GROUP_INFO
+from preprocessing import compile_group_suitability, CRS_CH, GROUP_INFO
 from utils_raster import upscale, downscale, crop_raster, calculate_resolution
 from masks import get_CH_border
 
