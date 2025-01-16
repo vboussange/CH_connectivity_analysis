@@ -12,7 +12,6 @@ from masks import MasksDataset, get_CH_border
 from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster, CRS_CH, fill_na_with_nearest
 from TraitsCH import TraitsCH
 from NSDM import NSDM
-from EUSDM import EUSDM
 from tqdm import tqdm
 
 from jaxscape.euclidean_distance import EuclideanDistance

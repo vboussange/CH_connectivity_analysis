@@ -9,10 +9,12 @@ import rioxarray
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import sys
+sys.path.append(str(Path(__file__).parent / Path("../src/")))
+from preprocessing import GROUP_INFO
 
 def calculate_summed_elasticities(config, base_path):
     summed_elasticity = None
-    GROUP_INFO = {"Reptiles": None}
 
     for group in GROUP_INFO:
         logger.info("Processing group: %s", group)
@@ -51,7 +53,7 @@ def calculate_summed_elasticities(config, base_path):
 
 
 if __name__ == "__main__":
-    config = {"hash": "ace93a1"}
+    config = {"hash": "905c509"}
     base_path = Path("results")
     summed_elasticity = calculate_summed_elasticities(config, base_path)
     # Save result

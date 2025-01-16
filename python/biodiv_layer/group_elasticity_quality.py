@@ -34,9 +34,7 @@ def run_elasticity_analysis_for_group(group, config):
     """
     distance_fn = GROUP_INFO[group]
 
-    repo = git.Repo(search_parent_directories=True)
-    sha = repo.git.rev_parse(repo.head, short=True)
-    output_path = Path(__file__).parent / Path(f"results/{sha}") / group
+    output_path = Path(__file__).parent / Path(f"results/{config['hash']}") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
@@ -79,11 +77,15 @@ def run_elasticity_analysis_for_group(group, config):
 
 
 def main():
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.git.rev_parse(repo.head, short=True)
+
     config = {
         "batch_size": 32,
         "dtype": "float32",
-        "analysis_precision": 1e-1,  # percentage of the dispersal range
-        "resolution": 25            # meters
+        "analysis_precision": 1e-1, # percentage of the dispersal range
+        "resolution": 25,            # meters
+        "hash": sha
     }
 
     for group in GROUP_INFO:
