@@ -31,7 +31,7 @@ conda env create --file environment.yml --prefix ./.env
 ```
 
 #### Input data
-The analysis depends on suitability maps for each taxonomic group considered. This data must be downloaded from [this Zenodo archive](xxxx) and placed under `data/`.
+The analysis depends on suitability maps for each taxonomic group considered. This data must be downloaded from [this Zenodo archive]() and placed under `data/`.
 
 ## File description
 The elasticities at the taxonomic group level are calculated with the `python/biodiv_layer/group_elasticity_*.py` scripts. They are aggregated with the script `group_summed_elasticities`.
@@ -39,4 +39,4 @@ The elasticities at the taxonomic group level are calculated with the `python/bi
 Utilities are placed in `src/`.
 
 ## Results
-Elasticity and the aggregated importance index maps are hosted under [this Zenodo archive](xxxx).
+Elasticity and the aggregated importance index maps are hosted under [this Zenodo archive]().
