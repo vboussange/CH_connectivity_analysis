@@ -76,7 +76,7 @@ def run_elasticity_analysis_for_group(group, config):
     print("Saved elasticity raster at:", output_path / "elasticity_quality.tif")
 
 
-def main():
+if __name__ == "__main__":
     repo = git.Repo(search_parent_directories=True)
     sha = repo.git.rev_parse(repo.head, short=True)
 
@@ -94,6 +94,5 @@ def main():
             run_elasticity_analysis_for_group(group, config)
         except Exception as e:
             print(f"Failed to compute elasticity for group {group}: {e}")
-
-if __name__ == "__main__":
-    main()
+            
+    print("Finished job.")

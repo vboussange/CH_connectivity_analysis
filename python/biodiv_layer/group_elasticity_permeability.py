@@ -77,7 +77,8 @@ def run_elasticity_analysis_for_group(group, config):
     elasticity_raster.rio.to_raster(output_path / "elasticity_permeability.tif", compress='lzw')
     print("Saved elasticity raster at:", output_path / "elasticity_permeability.tif")
 
-def main():
+
+if __name__ == "__main__":
     repo = git.Repo(search_parent_directories=True)
     sha = repo.git.rev_parse(repo.head, short=True)
 
@@ -96,5 +97,4 @@ def main():
         except Exception as e:
             print(f"Failed to compute elasticity for group {group}: {e}")
 
-if __name__ == "__main__":
-    main()
+    print("Finished job.")
