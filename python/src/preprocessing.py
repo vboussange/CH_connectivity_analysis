@@ -15,6 +15,9 @@ from NSDM import NSDM
 from EUSDM import EUSDM
 from tqdm import tqdm
 
+from jaxscape.euclidean_distance import EuclideanDistance
+from jaxscape.lcp_distance import LCPDistance
+
 GROUP_INFO = {"Mammals": LCPDistance(),
               "Reptiles": LCPDistance(),
               "Amphibians": EuclideanDistance(),
