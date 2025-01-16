@@ -1,41 +1,60 @@
+import logging
+import sys
+from pathlib import Path
+
 import numpy as np
 import xarray as xr
 import rioxarray
-from pathlib import Path
-# from sklearn.preprocessing import StandardScaler
-import sys
-sys.path.append(str(Path(__file__).parent / Path("../../src/")))
-from processing import GROUP_INFO
 
-# def load_and_scale_elasticity(file_path):
-#     """Load elasticity raster and scale the values."""
-#     raster = rioxarray.open_rasterio(file_path)
-    # values = raster.values
-    # scaler = StandardScaler()
-    # scaled_values = scaler.fit_transform(values.reshape(-1, 1)).reshape(values.shape)
-    # return scaled_values
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-base_path = Path("output")
 
-summed_elasticity = None
-GROUP_INFO = {"Reptiles": None}
-for group in GROUP_INFO:
-    elasticity_quality_path = base_path / group / "elasticity_quality.tif"
-    elasticity_permeability_path = base_path / group / "elasticity_permeability.tif"
-    
-    # Load and scale elasticity rasters
-    elasticity_quality = rioxarray.open_rasterio(elasticity_quality_path)
-    elasticity_permeability = rioxarray.open_rasterio(elasticity_permeability_path)
-    ech = elasticity_quality.sum()
-    
-    # Sum the scaled elasticities
-    if summed_elasticity is None:
-        summed_elasticity = (elasticity_quality + elasticity_permeability) / ech
-    else:
-        summed_elasticity += (elasticity_quality + elasticity_permeability) / ech
+def calculate_summed_elasticities(config, base_path):
+    summed_elasticity = None
+    GROUP_INFO = {"Reptiles": None}
 
-# Save the summed elasticity raster
-summed_elasticity.rio.to_raster(base_path / "elasticities_all.tif", compress='lzw')
+    for group in GROUP_INFO:
+        logger.info("Processing group: %s", group)
+        path_elasticities = base_path / config["hash"] / group
+        tif_files = list(path_elasticities.glob("*.tif"))
+        elasticities = {}
 
-# if __name__ == "__main__":
-#     main()
+        for tif_file in tif_files:
+            logger.info("Reading file: %s", tif_file)
+            key = tif_file.stem
+            elasticities[key] = rioxarray.open_rasterio(tif_file)
+
+        # Calculate group-summed elasticity
+        ech = elasticities["elasticity_quality"].sum()
+        group_summed_elasticity = elasticities["elasticity_quality"]
+        if len(elasticities) > 1:
+            group_summed_elasticity += elasticities["elasticity_permeability"]
+        group_summed_elasticity = group_summed_elasticity / ech / len(elasticities)
+
+        # Aggregate into the overall sum
+        if summed_elasticity is None:
+            summed_elasticity = group_summed_elasticity
+        else:
+            summed_elasticity += group_summed_elasticity
+
+    # Scale from 0 to 1
+    logger.info("Scaling the summed elasticity values from 0 to 1")
+    summed_elasticity_min = summed_elasticity.min()
+    summed_elasticity_max = summed_elasticity.max()
+    summed_elasticity = (
+        (summed_elasticity - summed_elasticity_min)
+        / (summed_elasticity_max - summed_elasticity_min)
+    )
+
+    return summed_elasticity
+
+
+if __name__ == "__main__":
+    config = {"hash": "ace93a1"}
+    base_path = Path("results")
+    summed_elasticity = calculate_summed_elasticities(config, base_path)
+    # Save result
+    out_file = base_path / config["hash"] / "elasticities_all.tif"
+    logger.info("Saving final raster to: %s", out_file)
+    summed_elasticity.rio.to_raster(out_file, compress="lzw")

@@ -19,6 +19,7 @@ dependencies:
   - tqdm
   - pytest
   - seaborn
+  - gitpython
   - pip:
     - jax[cuda12]
     - lineax

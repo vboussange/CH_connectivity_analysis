@@ -35,8 +35,7 @@ def run_elasticity_analysis_for_group(group, config):
     Runs elasticity analysis for a single group using the given configuration.
     """
     distance_fn = GROUP_INFO[group]
-    if isinstance(distance_fn, EuclideanDistance):
-        return
+
     repo = git.Repo(search_parent_directories=True)
     sha = repo.git.rev_parse(repo.head, short=True)
     output_path = Path(__file__).parent / Path(f"results/{sha}") / group
