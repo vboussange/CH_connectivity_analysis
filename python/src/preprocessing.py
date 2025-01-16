@@ -15,6 +15,19 @@ from NSDM import NSDM
 from EUSDM import EUSDM
 from tqdm import tqdm
 
+GROUP_INFO = {"Mammals": LCPDistance(),
+              "Reptiles": LCPDistance(),
+              "Amphibians": EuclideanDistance(),
+              "Birds": EuclideanDistance(),
+              "Fishes": LCPDistance(),
+              "Vascular_plants": EuclideanDistance(),
+              "Bryophytes": EuclideanDistance(),
+              "Spiders": LCPDistance(),
+              "Insects": LCPDistance(),
+              "Fungi": EuclideanDistance(),
+              "Molluscs": LCPDistance(),
+              "Lichens": EuclideanDistance()}
+
 def compile_species_suitability(species_name, D_m, resolution):
     # loading fine resolution raster
     raster_NSDM = NSDM().load_raster(species_name)
