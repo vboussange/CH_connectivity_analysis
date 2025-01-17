@@ -29,14 +29,7 @@ conda env create --file environment.yml --prefix ./.env
 
 #### Input data
 
-The analysis depends on mean suitability maps for each taxonomic group considered, which are available from [this Zenodo archive]() and placed under `data/raw`. To download them for later use with the scripts provided, go under the root folder and run 
-
-
-```bash
-
-```
-
-
+The analysis depends on mean suitability maps for each taxonomic group considered, which are available from [this Zenodo archive]() and placed under `data/raw`. Simply download the folder and place it under the root folder.
 
 The species maps from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.
 
