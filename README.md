@@ -1,6 +1,9 @@
 
 # Ecological connectivity analysis for Switzerland <img src="https://speed2zero.ethz.ch/wp-content/uploads/2023/02/SPEED2ZERO_Logo_trans.png" width="300" align="right">
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14676988.svg)](10.5281/zenodo.14676988)
+
+
 This repository contains the code used to assess the contribution of a pixel to the ecological connectivity at the Swiss landscape level, within the context of the [SPEED2ZERO](https://speed2zero.ethz.ch/en/) project.
 
 The importance of a pixel for supporting ecological connectivity is evaluated by quantifying how a marginal change in habitat quality and/or permeability affects the overall ecological connectivity of the landscape for a certain taxonomic group. This marginal change is called [quality or permeability *elasticity*](https://en.wikipedia.org/wiki/Elasticity_(economics)#Definition). These elasticities are calculated with the JAX library [`jaxscape`](https://github.com/vboussange/jaxscape).
@@ -29,7 +32,7 @@ conda env create --file environment.yml --prefix ./.env
 
 #### Input data
 
-The analysis depends on mean suitability maps for each taxonomic group considered, which are available from [this Zenodo archive]() and placed under `data/raw`. Simply download the folder and place it under the root folder.
+The analysis depends on mean suitability maps for each taxonomic group considered, which are available from [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/raw`. Simply download the folder and place it under the root folder.
 
 The species maps from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.
 
@@ -41,7 +44,7 @@ Access to the individual species distribution maps used to generate the mean sui
 - `src/*`: Utility functions.
 
 ## Results
-Elasticity maps and the Ecological connectivity importance score product are hosted under [this Zenodo archive]() and placed under `data/processed/HASH/`.
+Elasticity maps and the Ecological connectivity importance score product are hosted under [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/processed/HASH/`. Permeability elasticity maps are provided exclusively for groups where least-cost path distance is used to calculate proximity. For groups where Euclidean distance is used, species movement is assumed to be unaffected by the pixels between two suitable locations.
 
 ## Roadmap
 - [ ] Harmonize `.nc` and `.tiff` files
