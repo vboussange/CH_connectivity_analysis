@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 sys.path.append(str(Path(__file__).parent / Path("../src/")))
-from preprocessing import compile_group_suitability, CRS_CH, GROUP_INFO
+from group_preprocessing import compile_group_suitability, CRS_CH, GROUP_INFO
 from utils_raster import upscale, downscale, crop_raster, calculate_resolution
 from masks import get_CH_border
 
@@ -34,9 +34,7 @@ def run_elasticity_analysis_for_group(group, config):
     """
     distance_fn = GROUP_INFO[group]
 
-    repo = git.Repo(search_parent_directories=True)
-    sha = repo.git.rev_parse(repo.head, short=True)
-    output_path = Path(__file__).parent / Path(f"results/{sha}") / group
+    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
@@ -78,12 +76,16 @@ def run_elasticity_analysis_for_group(group, config):
     print("Saved elasticity raster at:", output_path / "elasticity_quality.tif")
 
 
-def main():
+if __name__ == "__main__":
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.git.rev_parse(repo.head, short=True)
+
     config = {
         "batch_size": 32,
         "dtype": "float32",
-        "analysis_precision": 1e-1,  # percentage of the dispersal range
-        "resolution": 25            # meters
+        "analysis_precision": 1e-1, # percentage of the dispersal range
+        "resolution": 25,            # meters
+        "hash": sha
     }
 
     for group in GROUP_INFO:
@@ -92,6 +94,5 @@ def main():
             run_elasticity_analysis_for_group(group, config)
         except Exception as e:
             print(f"Failed to compute elasticity for group {group}: {e}")
-
-if __name__ == "__main__":
-    main()
+            
+    print("Finished job.")
