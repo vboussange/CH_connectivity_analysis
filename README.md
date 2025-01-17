@@ -8,7 +8,7 @@ This repository contains the code used to assess the contribution of a location 
 
 The importance of a pixel for supporting ecological connectivity is evaluated by quantifying how a marginal change in habitat quality and/or permeability affects the overall ecological connectivity of the landscape for a certain taxonomic group. This marginal change is called [quality or permeability *elasticity*](https://en.wikipedia.org/wiki/Elasticity_(economics)#Definition). These elasticities are calculated with the JAX library [`jaxscape`](https://github.com/vboussange/jaxscape).
 
-Maps obtained at the taxonomic group level are aggregated groups to obtain a single **Ecological Connectivity Importance Score**, which identifies areas critical to maintaining connectivity.
+Individual maps for taxonomic groups are aggregated to produce a single Ecological Connectivity Importance Score, which identifies areas critical to maintaining overall connectivity.
 
 ![](ecological_connectivity_importance.png)
 > Ecological connectivity importance score map. Higher values indicate higher contribution of the pixels for overall ecological connectivity, implying larger loss of connectivity if the pixel's ecological quality or permeability is degraded.
