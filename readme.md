@@ -31,12 +31,15 @@ conda env create --file environment.yml --prefix ./.env
 ```
 
 #### Input data
-The analysis depends on suitability maps for each taxonomic group considered. This data must be downloaded from [this Zenodo archive]() and placed under `data/`.
+
+The analysis depends on mean suitability maps for each taxonomic group considered. This data must be downloaded from [this Zenodo archive]() and placed under `data/raw`. The species maps from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.
+
+Access to the individual species distribution maps used to generate the mean suitability maps for each taxonomic group, along with individual species dispersal range data, is restricted but may be considered upon request.
 
 ## File description
-The elasticities at the taxonomic group level are calculated with the `python/biodiv_layer/group_elasticity_*.py` scripts. They are aggregated with the script `group_summed_elasticities`.
-
-Utilities are placed in `src/`.
+- `python/biodiv_layer/group_elasticity_*.py`: Calculate (pemerability/quality) elasticities at the taxonomic group level. 
+- `group_summed_elasticities`: Aggregates elasticities to calculate the importance index for ecological connectivity.
+- `src/*`: Utility functions.
 
 ## Results
-Elasticity and the aggregated importance index maps are hosted under [this Zenodo archive]().
+Elasticity maps and the aggregated importance index map are placed under `data/processed/HASH/` and are hosted under [this Zenodo archive](). 

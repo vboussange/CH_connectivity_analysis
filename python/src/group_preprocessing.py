@@ -34,7 +34,7 @@ def compile_group_suitability(group, resolution):
     """
     Incrementally compute mean and std of the suitability rasters for all species in a taxonomic group.
     """
-    cache_path = Path(__file__).parent / Path(f"../../data/{group}/suitability_{resolution}m.nc")
+    cache_path = Path(__file__).parent / Path(f"../../data/raw/{group}/suitability_{resolution}m.nc")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         concatenated = xr.open_dataset(cache_path)

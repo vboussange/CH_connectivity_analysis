@@ -34,7 +34,7 @@ def run_elasticity_analysis_for_group(group, config):
     """
     distance_fn = GROUP_INFO[group]
 
-    output_path = Path(__file__).parent / Path(f"results/{config['hash']}") / group
+    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}") / group
     output_path.mkdir(parents=True, exist_ok=True)
 
     suitability_dataset = compile_group_suitability(group, config["resolution"])
