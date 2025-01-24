@@ -9,7 +9,7 @@ from shapely.geometry import box
 from pathlib import Path
 import numpy as np
 from masks import MasksDataset, get_CH_border
-from utils_raster import crop_raster, calculate_resolution, coarsen_raster, mask_raster, CRS_CH, fill_na_with_nearest
+from utils_raster import calculate_resolution, mask_raster, CRS_CH, fill_na_with_nearest, load_geotiff_dataset, dataset_to_geotiff
 from TraitsCH import TraitsCH
 from NSDM import NSDM
 from tqdm import tqdm
@@ -17,33 +17,51 @@ from tqdm import tqdm
 from jaxscape.euclidean_distance import EuclideanDistance
 from jaxscape.lcp_distance import LCPDistance
 
-GROUP_INFO = {"Mammals": LCPDistance(),
-              "Reptiles": LCPDistance(),
-              "Amphibians": EuclideanDistance(),
-              "Birds": EuclideanDistance(),
-              "Fishes": LCPDistance(),
-              "Vascular_plants": EuclideanDistance(),
-              "Bryophytes": EuclideanDistance(),
-              "Spiders": LCPDistance(),
-              "Insects": LCPDistance(),
-              "Fungi": EuclideanDistance(),
-              "Molluscs": LCPDistance(),
-              "Lichens": EuclideanDistance()}
+# 17 groups
+GROUP_INFO = {
+            "Mammals": LCPDistance(),
+            "Reptiles": LCPDistance(),
+            "Amphibians": EuclideanDistance(),
+            "Birds": EuclideanDistance(),
+            "Fishes": LCPDistance(),
+            "Vascular_plants": EuclideanDistance(),
+            "Bryophytes": EuclideanDistance(),
+            "Spiders": LCPDistance(),
+            "Beetles": LCPDistance(),
+            "Dragonflies": LCPDistance(),
+            "Grasshoppers": LCPDistance(),
+            "Butterflies": LCPDistance(),
+            "Bees": LCPDistance(),
+            "Fungi": EuclideanDistance(),
+            "Molluscs": LCPDistance(),
+            "Lichens": EuclideanDistance(),
+            "May_stone_caddisflies": LCPDistance(),
+            }
 
-def compile_group_suitability(group, resolution):
+def compile_group_suitability(group, aquatic, resolution):
     """
     Incrementally compute mean and std of the suitability rasters for all species in a taxonomic group.
     """
-    cache_path = Path(__file__).parent / Path(f"../../data/raw/{group}/suitability_{resolution}m.nc")
+    if aquatic:
+        typ = "Aquatic"
+    else:
+        typ = "Terrestrial"
+    cache_path = Path(__file__).parent / Path(f"../../data/raw/{typ}/suitability_{resolution}m_{group}_{typ}.tif")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
-        concatenated = xr.open_dataset(cache_path)
+        concatenated = load_geotiff_dataset(cache_path)
         res_lat, res_lon = calculate_resolution(concatenated)
         if res_lat == res_lon == resolution:
             return concatenated
 
     traits = TraitsCH()
-    species = traits.get_all_species_from_group(group)
+    species = traits.get_all_species_from_group(group).to_list()
+    
+    if aquatic:
+        species = [sp for sp in species if traits.get_habitat(sp) == "Aqu"]
+    else:
+        species = [sp for sp in species if traits.get_habitat(sp) != "Aqu"]
+        
     if len(species) == 0:
         raise ValueError(f"No data found for group {group}")
     print(f"Group {group} has {len(species)} species")
@@ -137,10 +155,12 @@ def compile_group_suitability(group, resolution):
 
     # Store metadata
     concatenated.attrs["D_m"] = D_m
-    concatenated.attrs["N_species"] = len(loaded_species)
+    concatenated.attrs["type"] = typ
+    concatenated.attrs["group"] = group
     concatenated.attrs["species"] = loaded_species
+    concatenated.attrs["N_species"] = len(loaded_species)
 
-    # Save to NetCDF
-    concatenated.to_netcdf(cache_path)
+    # Save to cache
+    dataset_to_geotiff(concatenated, cache_path)
 
     return concatenated

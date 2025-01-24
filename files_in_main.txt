@@ -1,0 +1,15 @@
+.gitignore
+README.md
+VERSION
+ecological_connectivity_importance.png
+python/biodiv_layer/figure/figure.py
+python/biodiv_layer/group_elasticity_permeability.py
+python/biodiv_layer/group_elasticity_quality.py
+python/biodiv_layer/group_summed_elasticities.py
+python/environment.yml
+python/src/NSDM.py
+python/src/TraitsCH.py
+python/src/group_preprocessing.py
+python/src/masks.py
+python/src/utils_raster.py
+run_script.sh

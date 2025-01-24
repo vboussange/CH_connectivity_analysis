@@ -28,16 +28,21 @@ from masks import get_CH_border
 def proximity(dist):
     return jnp.exp(-dist) / jnp.sum(jnp.exp(-dist))
 
-def run_elasticity_analysis_for_group(group, config):
+def run_elasticity_analysis_for_group(group, aquatic, config):
     """
     Runs elasticity analysis for a single group using the given configuration.
     """
     distance_fn = GROUP_INFO[group]
+    if aquatic:
+        typ = "Aquatic"
+    else:
+        typ = "Terrestrial"
 
-    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}") / group
+    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}") / typ / group
+    file_name = f"elasticity_quality_{group}_{typ}.tif"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    suitability_dataset = compile_group_suitability(group, config["resolution"])
+    suitability_dataset = compile_group_suitability(group, aquatic, config["resolution"])
     fine_resolution, _ = calculate_resolution(suitability_dataset["mean_suitability"])
     D_m = suitability_dataset.attrs["D_m"]
 
@@ -71,9 +76,10 @@ def run_elasticity_analysis_for_group(group, config):
 
     output_raster = downscale(output_raster, suitability_dataset["mean_suitability"])
     output_raster = crop_raster(output_raster, switzerland_boundary)
+    # TODO: for Aquatic, need to mask out lakes
     elasticity_raster = output_raster * suitability_dataset["mean_suitability"]
-    elasticity_raster.rio.to_raster(output_path / "elasticity_quality.tif", compress='lzw')
-    print("Saved elasticity raster at:", output_path / "elasticity_quality.tif")
+    elasticity_raster.rio.to_raster(output_path / file_name, compress='zstd')
+    print("Saved elasticity raster at:", output_path / file_name)
 
 
 if __name__ == "__main__":
@@ -89,10 +95,11 @@ if __name__ == "__main__":
     }
 
     for group in GROUP_INFO:
-        print("Computing elasticity for group:", group)
-        try:
-            run_elasticity_analysis_for_group(group, config)
-        except Exception as e:
-            print(f"Failed to compute elasticity for group {group}: {e}")
-            
+        for aquatic in [False, True]:
+            print("Computing permeability elasticity for group:", group)
+            try:
+                run_elasticity_analysis_for_group(group, aquatic, config)
+            except Exception as e:
+                print(f"Failed to compute elasticity for group {group} with aquatic={aquatic}: {e}")
+
     print("Finished job.")

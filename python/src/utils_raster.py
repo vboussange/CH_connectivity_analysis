@@ -62,6 +62,30 @@ def mask_raster(raster, traits_dataset, masks_dataset):
     
     else:
         return raster
+    
+    
+
+def dataset_to_geotiff(dataset, filepath):
+    """
+    Save a rioxarray dataset as a single multi-band GeoTIFF, 
+    where each variable corresponds to a band.
+    """
+    stacked = dataset.to_dataarray(dim="band")
+    stacked.attrs["band_names"] = list(dataset.data_vars)
+    stacked.rio.to_raster(filepath, 
+                          driver="GTiff", 
+                          compress="zstd")
+    
+def load_geotiff_dataset(filepath):
+    """
+    Load a multi-band GeoTIFF where each band corresponds to a variable.
+    Reconstruct the original dataset with variable names.
+    """
+    dataar = rioxarray.open_rasterio(filepath)
+    dataset = dataar.to_dataset(dim="band")
+    band_names = eval(dataar.attrs["band_names"])
+    dataset = dataset.rename({i+1: n  for i, n in enumerate(band_names)})
+    return dataset
 
 
 def save_to_netcdf(dataset, path, scale_factor):
@@ -110,3 +134,37 @@ def fill_na_with_nearest(da: xr.DataArray) -> xr.DataArray:
     filled_da = da.copy()
     filled_da.values = filled_np
     return filled_da
+
+
+if __name__ == "__main__":
+    def mock_dataset():
+        width = 100  # Number of grid cells in the x-direction
+        height = 100  # Number of grid cells in the y-direction
+
+        x_coords = np.linspace(0, 1000, width)
+        y_coords = np.linspace(0, 1000, height)
+        elevation = np.sin(np.linspace(0, 2 * np.pi, width)) * np.cos(np.linspace(0, 2 * np.pi, height))[:, None]
+        temperature = 20 + 10 * np.sin(np.linspace(0, 2 * np.pi, width))[:, None] * np.cos(np.linspace(0, 2 * np.pi, height))
+
+        ds = xr.Dataset(
+            {
+                "elevation": (("y", "x"), elevation),
+                "temperature": (("y", "x"), temperature)
+            },
+            coords={"x": x_coords, "y": y_coords}
+        )
+
+        ds["elevation"].attrs["units"] = "meters"
+        ds["elevation"].attrs["description"] = "Synthetic elevation data"
+        ds["temperature"].attrs["units"] = "degrees Celsius"
+        ds["temperature"].attrs["description"] = "Synthetic temperature data"
+
+        ds = ds.rio.write_crs("EPSG:32633")  # Example: UTM Zone 33N
+        return ds
+    
+    
+    def test_dataset_to_geotiff():
+        orig_dataset = mock_dataset()
+        dataset_to_geotiff(orig_dataset, "synthetic_data.tif")
+        dataset = load_geotiff_dataset("synthetic_data.tif")
+        assert np.allclose(dataset["temperature"], orig_dataset["temperature"], atol=1e-6)
