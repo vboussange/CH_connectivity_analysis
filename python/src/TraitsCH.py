@@ -6,8 +6,13 @@ from pathlib import Path
 import netCDF4
 import pandas as pd
 
-TRAITS_CH_PATH = Path(__file__).parent / '../../../data/TraitsCH/dispersal_focus/s2z_compiled'
-GUILDS_EU_PATH = Path(__file__).parent / '../../../data/GUILDS_EU_SP/'
+TRAITS_CH_PATH = Path(__file__).parent / '../../data/raw/TraitsCH/dispersal_focus'
+
+DICT_STUDY_GROUP = {"mammals": "Mammals", "reptiles": "Reptiles", "amphibians": "Amphibians", "birds": "Birds", "fishes": "Fishes",
+               "vascular_plants": "Vascular_plants", "bryophytes": "Bryophytes", "spiders": "Spiders", "coleoptera": "Beetles",
+               "odonata": "Dragonflies", "orthoptera": "Grasshoppers", "lepidoptera": "Butterflies", "bees": "Bees", "fungi": "Fungi",
+               "molluscs": "Molluscs", "lichens": "Lichens", "may_stone_caddis_flies": "May_stone_caddisflies"}
+
 
 class TraitsCH():
     def __init__(self):
@@ -19,7 +24,8 @@ class TraitsCH():
         df = pd.concat(df_list, ignore_index=True)
         df[["Fos", "Ter", "Aqu", "Arb", "Aer"]] = df[["Fos", "Ter", "Aqu", "Arb", "Aer"]].astype(bool)
         df[df.columns[14:40]] = df[df.columns[14:40]].astype(bool)
-
+        df = df.replace({'/': '_'}, regex=True)
+        df["Study_group"] = df["Study_group"].replace(DICT_STUDY_GROUP)
         self.data = df
         
     def get_row(self, species_name):
@@ -54,29 +60,13 @@ class TraitsCH():
         return self.data[self.data[guild_name] == 1].Species
     
     def get_all_species_from_group(self, group_name):
-        return self.data[self.data["Group"] == group_name].Species
+        return self.data[self.data["Study_group"] == group_name].Species
     
     def get_habitat(self, species_name):
         return self._get_dummy(species_name, ["Fos", "Ter", "Aqu", "Arb", "Aer"])[0]
     
     def get_guilds(self, species_name):
         return self._get_dummy(species_name, self.data.columns[14:40])
-
-    def get_suitability(self, species_name):
-        path = GUILDS_EU_PATH/species_name
-        raster_file = list(path.glob("*.tif"))
-        if len(raster_file) == 1:
-            raster_file = raster_file[0]
-            raster = rioxarray.open_rasterio(raster_file, mask_and_scale=True)
-            raster = raster.drop_vars(["band"]) # we keep `spatial_ref` var. as it contains crs data
-            raster = raster.rename(path.parent.stem)
-            return raster
-        if (raster.max() > 1) & (raster.min() < 100):
-            print("Rescaling habitat quality between 0 and 1")
-            raster = raster / 100.
-
-        else:
-            ValueError("Problem reading {species_name} raster")
         
 
 if __name__ == "__main__":
