@@ -22,7 +22,7 @@ class TraitsCH():
             df = pd.read_csv(file, delimiter=" ", na_values=["NA"])
             df_list.append(df)
         df = pd.concat(df_list, ignore_index=True)
-        df[["Fos", "Ter", "Aqu", "Arb", "Aer"]] = df[["Fos", "Ter", "Aqu", "Arb", "Aer"]].astype(bool)
+        df[["Fos", "Ter", "Aqu", "Arb", "Aer"]] = df[["Fos", "Ter", "Aqu", "Arb", "Aer"]].fillna(0).astype(bool)
         df[df.columns[14:40]] = df[df.columns[14:40]].astype(bool)
         df = df.replace({'/': '_'}, regex=True)
         df["Study_group"] = df["Study_group"].replace(DICT_STUDY_GROUP)
