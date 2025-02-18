@@ -1,7 +1,7 @@
 
 # Ecological connectivity analysis for Switzerland <img src="https://speed2zero.ethz.ch/wp-content/uploads/2023/02/SPEED2ZERO_Logo_trans.png" width="300" align="right">
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14676988.svg)](10.5281/zenodo.14676988)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14676988.svg)](https://doi.org/10.5281/zenodo.14676988)
 
 
 This repository contains the code used to assess the contribution of a location to the ecological connectivity at the Swiss landscape level, within the context of the [SPEED2ZERO](https://speed2zero.ethz.ch/en/) project.
