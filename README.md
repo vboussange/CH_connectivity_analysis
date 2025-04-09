@@ -32,11 +32,15 @@ conda env create --file environment.yml --prefix ./.env
 
 #### Input data
 
-The analysis depends on mean suitability maps for each taxonomic group considered, which are available from [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/raw`. Simply download the folder and place it under the root folder.
+The analysis depends on mean suitability maps for each taxonomic group considered, which are derived from individual species suitability maps obtained from
 
-The species maps from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.
+>  Adde, A., ..., Guisan, A., & Altermatt, F. SDMapCH: A comprehensive database of modelled species habitat suitability maps for Switzerland. *In preparation*.
 
-Access to the individual species distribution maps used to generate the mean suitability maps for each taxonomic group, along with individual species dispersal range data, is restricted but may be considered upon request.
+The anonymised mean suitability maps for each taxonomic group is available from [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/raw`. Simply download the folder and place it under the root folder.
+
+<!--- The species names from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.-->
+
+Access to the individual species suitability maps along with individual species dispersal range data, is restricted but may be considered upon request.
 
 ## File description
 - `python/biodiv_layer/group_elasticity_*.py`: Calculate (pemerability/quality) elasticities at the taxonomic group level. 
