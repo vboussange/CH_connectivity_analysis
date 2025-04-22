@@ -96,7 +96,7 @@ if __name__ == "__main__":
     config = {
         "batch_size": 16,
         "dtype": "float32",
-        "analysis_precision": 1e-1, # percentage of the dispersal range
+        "analysis_precision": 2e-1, # percentage of the dispersal range
         "resolution": 25,            # meters
         "hash": sha
     }
