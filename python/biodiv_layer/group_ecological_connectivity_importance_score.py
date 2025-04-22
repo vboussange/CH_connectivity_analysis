@@ -20,7 +20,7 @@ import sys
 sys.path.append(str(Path(__file__).parent / Path("../src/")))
 from group_preprocessing import GROUP_INFO, compile_group_suitability
 import pandas as pd
-def calculate_ecis(config, typ, base_path):
+def calculate_ecis(config, hab, base_path):
     """
     Calculate ecological connectivity importance score for multiple taxonomic groups, 
     and also return a DataFrame containing D_m for each group.
@@ -32,11 +32,11 @@ def calculate_ecis(config, typ, base_path):
         return (data - data_min) / (data_max - data_min)
 
     dm_records = []
-    summed_elasticity = None
+    total_elasticity = None
 
     for group in GROUP_INFO:
-        logger.info("Processing %s species for group: %s", typ, group)
-        path_elasticities = base_path / config["hash"] / typ / group
+        logger.info("Processing %s species for group: %s", hab, group)
+        path_elasticities = base_path / config["hash"] / hab / group
         tif_files = list(path_elasticities.glob("*.tif"))
         elasticities = {}
 
@@ -46,38 +46,32 @@ def calculate_ecis(config, typ, base_path):
             elasticities[key] = rioxarray.open_rasterio(tif_file)
 
         if len(elasticities) > 0:
-            aquatic = typ == "Aquatic"
-            suitability_dataset = compile_group_suitability(group, aquatic, 25)
-            D_m = suitability_dataset.attrs["D_m"]
-            dm_records.append({"group": group, "dispersal range (km)": round(D_m / 1000, 2), "ecological distance": GROUP_INFO[group]})
-
-            group_summed_elasticity = elasticities[f"elasticity_quality_{group}_{typ}"]
+            group_summed_elasticity = elasticities[f"elasticity_quality_{group}_{hab}"]
             if len(elasticities) > 1:
-                group_summed_elasticity += elasticities[f"elasticity_permeability_{group}_{typ}"]
+                group_summed_elasticity += elasticities[f"elasticity_permeability_{group}_{hab}"]
                 
-            # TODO: you calculate ECIS for each group
             group_summed_elasticity = np.log(rescale(group_summed_elasticity)+ 1e-5)
 
-            if summed_elasticity is None:
-                summed_elasticity = group_summed_elasticity
+            if total_elasticity is None:
+                total_elasticity = group_summed_elasticity
             else:
-                summed_elasticity += group_summed_elasticity
+                total_elasticity = xr.ufuncs.maximum(total_elasticity, group_summed_elasticity)
 
     logger.info("Scaling the summed elasticity values from 0 to 1")
-    summed_elasticity = rescale(summed_elasticity)
+    total_elasticity = rescale(total_elasticity)
     dm_df = pd.DataFrame(dm_records)
-    return summed_elasticity, dm_df
+    return total_elasticity, dm_df
 
 if __name__ == "__main__":
     config = {"hash": "cedc9c8"}
     base_path = Path(__file__).parent / Path("../../data/processed")
-    for typ in ["Aquatic", "Terrestrial"]:
-        print("Processing type: ", typ)
-        ecis, dm_df = calculate_ecis(config, typ, base_path)
+    for hab in ["Aqu", "Ter"]:
+        print("Processing type: ", hab)
+        ecis, dm_df = calculate_ecis(config, hab, base_path)
         # Save result
-        out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{typ}"
+        out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{hab}"
         logger.info("Saving final raster to: %s", out_file)
-        ecis.rio.to_raster(str(out_file) + ".tif", compress="lzw")
+        ecis.rio.to_raster(str(out_file) + ".tif", compress="zstd")
         dm_df.to_csv(str(out_file) + ".csv", index=False)
         if True:
             import matplotlib.pyplot as plt
@@ -87,11 +81,11 @@ if __name__ == "__main__":
                 ax=ax,
                 # vmax=0.5,
                 cmap="magma",
-                cbar_kwargs={"label": f"Ecological Connectivity Importance Score\n{typ} species",
+                cbar_kwargs={"label": f"Ecological Connectivity Importance Score\n{hab} species",
                             "shrink": 0.3},
             )
             ax.set_aspect("equal")
             ax.set_title("")
             ax.set_axis_off()
             # fig.tight_layout()
-            fig.savefig(Path(__file__).parent / f"../../ecological_connectivity_importance_{typ}.png", dpi=300)
+            fig.savefig(Path(__file__).parent / f"../../ecological_connectivity_importance_{hab}.png", dpi=300)

@@ -63,7 +63,7 @@ class TraitsCH():
         return self.data[self.data["Study_group"] == group_name].Species
     
     def get_habitat(self, species_name):
-        return self._get_dummy(species_name, ["Fos", "Ter", "Aqu", "Arb", "Aer"])[0]
+        return self._get_dummy(species_name, ["Fos", "Ter", "Aqu", "Arb", "Aer"])
     
     def get_guilds(self, species_name):
         return self._get_dummy(species_name, self.data.columns[14:40])
