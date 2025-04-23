@@ -10,7 +10,7 @@ The importance of a pixel for supporting ecological connectivity is evaluated by
 
 Individual maps for taxonomic groups are aggregated to produce a single Ecological Connectivity Importance Score, which identifies areas critical to maintaining overall connectivity.
 
-![](ecological_connectivity_importance_Terrestrial.png)
+![](ecological_connectivity_importance_score_max_Aqu_Ter.png)
 > Ecological connectivity importance score map for terrestrial species. Higher values indicate higher contribution of the pixels for overall ecological connectivity, implying larger loss of connectivity if the pixel's ecological quality or permeability is degraded.
 
 A manuscript detailing the approach will be available soon.
@@ -36,11 +36,7 @@ The analysis depends on mean suitability maps for each taxonomic group considere
 
 >  Adde, A., ..., Guisan, A., & Altermatt, F. SDMapCH: A comprehensive database of modelled species habitat suitability maps for Switzerland. *In preparation*.
 
-The anonymised mean suitability maps for each taxonomic group is available from [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/raw`. Simply download the folder and place it under the root folder.
-
-<!--- The species names from which the mean suitability maps have been derived, together with the mean dispersal range used for the calculation of ecological proximity, are stored in each `.nc` file attributes.-->
-
-Access to the individual species suitability maps along with individual species dispersal range data, is restricted but may be considered upon request.
+Access to the mean suitability maps for each taxonomic group, to the individual species suitability maps, and to the individual species dispersal range data, is restricted but may be considered upon request.
 
 ## File description
 - `python/biodiv_layer/group_elasticity_*.py`: Calculate (pemerability/quality) elasticities at the taxonomic group level. 

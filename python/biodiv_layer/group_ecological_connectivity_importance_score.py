@@ -1,8 +1,4 @@
-# Calculate the overall group-summed elasticity for multiple taxonomic groups,
-# excluding fishes, based on per-group TIF files. The function reads and sums
-# "elasticity_quality" and optionally "elasticity_permeability" for each group,
-# averages them, and ultimately scales the final summed elasticity values from 0
-# to 1.
+# Calculate ecological connectivity index for Ter and Aqu species, and combined.
 
 
 import logging
@@ -13,6 +9,8 @@ import numpy as np
 import xarray as xr
 import rioxarray
 
+import matplotlib.pyplot as plt
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -20,23 +18,42 @@ import sys
 sys.path.append(str(Path(__file__).parent / Path("../src/")))
 from group_preprocessing import GROUP_INFO, compile_group_suitability
 import pandas as pd
-def calculate_ecis(config, typ, base_path):
+
+def rescale(data):
+    data_min = data.min()
+    data_max = data.max()
+    return (data - data_min) / (data_max - data_min)
+
+def safe_add(a, b):
+    return np.where(np.isnan(a), b, np.where(np.isnan(b), a, a + b))
+
+def plot_raster(rast, title, path):
+            fig, ax = plt.subplots()
+            plot_data = ecis.coarsen(x=10, y=10, boundary="trim").mean()
+            plot_data.plot(
+                ax=ax,
+                # vmax=0.5,
+                cmap="magma",
+                cbar_kwargs={"label": title,
+                            "shrink": 0.3},
+            )
+            ax.set_aspect("equal")
+            ax.set_title("")
+            ax.set_axis_off()
+            # fig.tight_layout()
+            fig.savefig(path, dpi=300)
+
+def calculate_ecis(config, hab, base_path, aggregation):
     """
     Calculate ecological connectivity importance score for multiple taxonomic groups, 
     and also return a DataFrame containing D_m for each group.
     """
 
-    def rescale(data):
-        data_min = data.min()
-        data_max = data.max()
-        return (data - data_min) / (data_max - data_min)
-
-    dm_records = []
-    summed_elasticity = None
+    total_elasticity = None
 
     for group in GROUP_INFO:
-        logger.info("Processing %s species for group: %s", typ, group)
-        path_elasticities = base_path / config["hash"] / typ / group
+        logger.info("Processing %s species for group: %s", hab, group)
+        path_elasticities = base_path / config["hash"] / hab / group
         tif_files = list(path_elasticities.glob("*.tif"))
         elasticities = {}
 
@@ -46,52 +63,53 @@ def calculate_ecis(config, typ, base_path):
             elasticities[key] = rioxarray.open_rasterio(tif_file)
 
         if len(elasticities) > 0:
-            aquatic = typ == "Aquatic"
-            suitability_dataset = compile_group_suitability(group, aquatic, 25)
-            D_m = suitability_dataset.attrs["D_m"]
-            dm_records.append({"group": group, "dispersal range (km)": round(D_m / 1000, 2), "ecological distance": GROUP_INFO[group]})
-
-            group_summed_elasticity = elasticities[f"elasticity_quality_{group}_{typ}"]
+            group_summed_elasticity = elasticities[f"elasticity_quality_{group}_{hab}"]
             if len(elasticities) > 1:
-                group_summed_elasticity += elasticities[f"elasticity_permeability_{group}_{typ}"]
+                group_summed_elasticity += elasticities[f"elasticity_permeability_{group}_{hab}"]
                 
-            # TODO: you calculate ECIS for each group
-            group_summed_elasticity = np.log(rescale(group_summed_elasticity)+ 1e-5)
+            group_summed_elasticity = rescale(np.log(group_summed_elasticity+1e-5))
 
-            if summed_elasticity is None:
-                summed_elasticity = group_summed_elasticity
-            else:
-                summed_elasticity += group_summed_elasticity
+            if total_elasticity is None:
+                total_elasticity = group_summed_elasticity
+            elif aggregation == "max":
+                total_elasticity = xr.ufuncs.fmax(total_elasticity, group_summed_elasticity)
+            elif aggregation == "mean":
+                total_elasticity = xr.apply_ufunc(safe_add, total_elasticity, group_summed_elasticity)
 
     logger.info("Scaling the summed elasticity values from 0 to 1")
-    summed_elasticity = rescale(summed_elasticity)
-    dm_df = pd.DataFrame(dm_records)
-    return summed_elasticity, dm_df
+    total_elasticity = rescale(total_elasticity)
+    return total_elasticity
 
 if __name__ == "__main__":
-    config = {"hash": "cedc9c8"}
+    config = {"hash": "277b08f",
+              "aggregation": "max",}
     base_path = Path(__file__).parent / Path("../../data/processed")
-    for typ in ["Aquatic", "Terrestrial"]:
-        print("Processing type: ", typ)
-        ecis, dm_df = calculate_ecis(config, typ, base_path)
+    for hab in ["Aqu", "Ter"]:
+        print("Processing type: ", hab)
+        ecis = calculate_ecis(config, hab, base_path, config["aggregation"])
         # Save result
-        out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{typ}"
+        out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_{hab}"
         logger.info("Saving final raster to: %s", out_file)
-        ecis.rio.to_raster(str(out_file) + ".tif", compress="lzw")
-        dm_df.to_csv(str(out_file) + ".csv", index=False)
+        ecis.rio.to_raster(str(out_file) + ".tif", compress="zstd")
+        
         if True:
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots()
-            plot_data = ecis.coarsen(x=10, y=10, boundary="trim").mean()
-            plot_data.plot(
-                ax=ax,
-                # vmax=0.5,
-                cmap="magma",
-                cbar_kwargs={"label": f"Ecological Connectivity Importance Score\n{typ} species",
-                            "shrink": 0.3},
-            )
-            ax.set_aspect("equal")
-            ax.set_title("")
-            ax.set_axis_off()
-            # fig.tight_layout()
-            fig.savefig(Path(__file__).parent / f"../../ecological_connectivity_importance_{typ}.png", dpi=300)
+            plot_raster(ecis, f"Ecological Connectivity Importance Score ({hab})", out_file.with_suffix(".png"))
+
+
+    # Combine Aqu and Ter rasters based on the aggregation method
+    logger.info("Combining Aqu and Ter rasters using aggregation: %s", config["aggregation"])
+    aqu_raster = rioxarray.open_rasterio(str(base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu.tif"))
+    ter_raster = rioxarray.open_rasterio(str(base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Ter.tif"))
+
+    if config["aggregation"] == "max":
+        combined_raster = rescale(xr.ufuncs.fmax(ter_raster, aqu_raster))
+    elif config["aggregation"] == "mean":
+        combined_raster = rescale(xr.apply_ufunc(safe_add, aqu_raster, ter_raster))
+
+    # Save the combined raster
+    combined_out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu_Ter"
+    logger.info("Saving combined raster to: %s", combined_out_file.with_suffix(".tif"))
+    combined_raster.rio.to_raster(str(combined_out_file.with_suffix(".tif")), compress="zstd")
+    plot_raster(ecis, f"Ecological Connectivity Importance Score", combined_out_file.with_suffix(".png"))
+
+        

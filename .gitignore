@@ -9,3 +9,5 @@ Manifest.toml
 .cache/
 stdout/*
 data/*
+*.out
+*.log
