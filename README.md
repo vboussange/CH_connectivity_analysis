@@ -10,7 +10,7 @@ The importance of a pixel for supporting ecological connectivity is evaluated by
 
 Individual maps for taxonomic groups are aggregated to produce a single Ecological Connectivity Importance Score, which identifies areas critical to maintaining overall connectivity.
 
-![](ecological_connectivity_importance_Terrestrial.png)
+![](ecological_connectivity_importance_score_max_Aqu_Ter.png)
 > Ecological connectivity importance score map for terrestrial species. Higher values indicate higher contribution of the pixels for overall ecological connectivity, implying larger loss of connectivity if the pixel's ecological quality or permeability is degraded.
 
 A manuscript detailing the approach will be available soon.
