@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 
 import sys
 sys.path.append(str(Path(__file__).parent / Path("../src/")))
-from group_preprocessing import GROUP_INFO, compile_group_suitability
+from group_preprocessing import GROUP_INFO
+from NSDM import NSDM_PATH
+from utils_raster import load_raster, CRS_CH
 import pandas as pd
+REF_RASTER = load_raster(NSDM_PATH[25] / "Rattus.norvegicus_reg_covariate_ensemble.tif")
 
 def rescale(data):
     data_min = data.min()
@@ -29,7 +32,7 @@ def safe_add(a, b):
 
 def plot_raster(rast, title, path):
             fig, ax = plt.subplots()
-            plot_data = ecis.coarsen(x=10, y=10, boundary="trim").mean()
+            plot_data = rast.coarsen(x=10, y=10, boundary="trim").mean()
             plot_data.plot(
                 ax=ax,
                 # vmax=0.5,
@@ -43,7 +46,7 @@ def plot_raster(rast, title, path):
             # fig.tight_layout()
             fig.savefig(path, dpi=300)
 
-def calculate_ecis(config, hab, base_path, aggregation):
+def calculate_ecis(hab, base_path, aggregation):
     """
     Calculate ecological connectivity importance score for multiple taxonomic groups, 
     and also return a DataFrame containing D_m for each group.
@@ -53,7 +56,7 @@ def calculate_ecis(config, hab, base_path, aggregation):
 
     for group in GROUP_INFO:
         logger.info("Processing %s species for group: %s", hab, group)
-        path_elasticities = base_path / config["hash"] / hab / group
+        path_elasticities = base_path / "elasticities" / hab / group
         tif_files = list(path_elasticities.glob("*.tif"))
         elasticities = {}
 
@@ -83,12 +86,15 @@ def calculate_ecis(config, hab, base_path, aggregation):
 if __name__ == "__main__":
     config = {"hash": "277b08f",
               "aggregation": "max",}
-    base_path = Path(__file__).parent / Path("../../data/processed")
+    base_path = Path(__file__).parent / Path("../../data/processed")  / config["hash"]
+    ecis_path = base_path / "ecological_connectivity_importance_score"
+    ecis_path.mkdir(parents=True, exist_ok=True)
     for hab in ["Aqu", "Ter"]:
         print("Processing type: ", hab)
-        ecis = calculate_ecis(config, hab, base_path, config["aggregation"])
+        ecis = calculate_ecis(hab, base_path, config["aggregation"]).rio.set_crs(CRS_CH)
+        ecis = ecis.rio.reproject_match(REF_RASTER)
         # Save result
-        out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_{hab}"
+        out_file = ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_{hab}"
         logger.info("Saving final raster to: %s", out_file)
         ecis.rio.to_raster(str(out_file) + ".tif", compress="zstd")
         
@@ -98,8 +104,8 @@ if __name__ == "__main__":
 
     # Combine Aqu and Ter rasters based on the aggregation method
     logger.info("Combining Aqu and Ter rasters using aggregation: %s", config["aggregation"])
-    aqu_raster = rioxarray.open_rasterio(str(base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu.tif"))
-    ter_raster = rioxarray.open_rasterio(str(base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Ter.tif"))
+    aqu_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu.tif"))
+    ter_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Ter.tif"))
 
     if config["aggregation"] == "max":
         combined_raster = rescale(xr.ufuncs.fmax(ter_raster, aqu_raster))
@@ -107,9 +113,8 @@ if __name__ == "__main__":
         combined_raster = rescale(xr.apply_ufunc(safe_add, aqu_raster, ter_raster))
 
     # Save the combined raster
-    combined_out_file = base_path / config["hash"] / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu_Ter"
+    combined_raster = combined_raster.rio.set_crs(CRS_CH)
+    combined_out_file = ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu_Ter"
     logger.info("Saving combined raster to: %s", combined_out_file.with_suffix(".tif"))
     combined_raster.rio.to_raster(str(combined_out_file.with_suffix(".tif")), compress="zstd")
     plot_raster(ecis, f"Ecological Connectivity Importance Score", combined_out_file.with_suffix(".png"))
-
-        

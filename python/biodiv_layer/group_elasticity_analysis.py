@@ -83,7 +83,7 @@ def run_elasticity_analysis_for_group(group, hab, sens_type, config):
     output_raster = downscale(output_raster, suitability_dataset["mean_suitability"])
     output_raster = crop_raster(output_raster, switzerland_boundary)
     elasticity_raster = output_raster * suitability_dataset["mean_suitability"]
-    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}") / hab / group
+    output_path = Path(__file__).parent / Path(f"../../data/processed/{config['hash']}/elasticities") / hab / group
     file_name = f"elasticity_{sens_type}_{group}_{hab}.tif"
     output_path.mkdir(parents=True, exist_ok=True)
     elasticity_raster.rio.to_raster(output_path / file_name, compress='zstd')
