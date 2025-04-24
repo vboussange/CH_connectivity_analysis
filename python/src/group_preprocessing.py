@@ -44,7 +44,6 @@ def compile_group_suitability(group, hab, resolution):
     Incrementally compute mean and std of the suitability rasters for all species in a taxonomic group.
     """
     cache_path = Path(__file__).parent / Path(f"../../data/processed/{hab}/suitability_{resolution}m_{group}_{hab}.tif")
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         concatenated = load_geotiff_dataset(cache_path)
         res_lat, res_lon = calculate_resolution(concatenated)
@@ -54,12 +53,20 @@ def compile_group_suitability(group, hab, resolution):
     traits = TraitsCH()
     species = traits.get_all_species_from_group(group).to_list()
     
-    species = [sp for sp in species if hab in traits.get_habitat(sp)]
+    species_in_hab = []
+    for sp in species:
+        habitats = traits.get_habitat(sp)
+        # if both Aqu and Ter --> Aqu by default
+        if len(habitats) > 1 and "Aqu" in habitats:
+            habitats = ["Aqu"]
+        if hab in habitats:
+            species_in_hab.append(sp)
         
     if len(species) == 0:
         raise ValueError(f"No data found for group {group}")
     print(f"Group {group} has {len(species)} species")
-    
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Calculate buffer distance, get Swiss boundary, and buffer
     nsdm_dataset = NSDM()
 
@@ -69,7 +76,7 @@ def compile_group_suitability(group, hab, resolution):
     available_species = []
     species_data = []
 
-    for sp in species:
+    for sp in species_in_hab:
         formatted_species_name = sp.replace(" ", ".")
         filename_pattern = f"*{formatted_species_name}_reg_covariate_ensemble.tif"
         raster_file = list(NSDM_PATH[resolution].glob(filename_pattern))

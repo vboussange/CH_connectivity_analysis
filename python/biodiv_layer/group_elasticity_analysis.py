@@ -21,7 +21,7 @@ import xarray as xr
 import rioxarray
 import jax.numpy as jnp
 from pathlib import Path
-from jaxscape.euclidean_distance import EuclideanDistance
+from jaxscape.euclidean_distance import EuclideanDistance, LCPDistance
 from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_permeability_vmap
 from copy import deepcopy
 import git
@@ -61,7 +61,7 @@ def run_elasticity_analysis_for_group(group, hab, sens_type, config):
 
     dependency_range = math.ceil(3 * D_m / upscale_resolution)
     mean_dist = 1 / jnp.mean(quality)
-    alpha = upscale_resolution / mean_dist
+    alpha = upscale_resolution / mean_dist if isinstance(distance_fn, LCPDistance) else upscale_resolution
 
     sensitivity_analyzer = SensitivityAnalysis(
         quality_raster=quality,
