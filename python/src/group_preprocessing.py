@@ -95,7 +95,8 @@ def compile_group_suitability(group, hab, resolution):
     species_df = pd.DataFrame(species_data)
     species_df.to_csv(available_species_path, index=False)
 
-    D_m = species_df.dispersal_range_km.mean() * 1000  # convert to meters
+    D_m = species_df.dispersal_range_km.median() * 1000  # convert to meters
+    D_m_std = species_df.dispersal_range_km.std() * 1000  # convert to meters
     switzerland_boundary = get_CH_border()
     # padding to avoid edge effects
     switzerland_buffer = switzerland_boundary.buffer(3 * D_m)
@@ -173,6 +174,7 @@ def compile_group_suitability(group, hab, resolution):
 
     # Store metadata
     concatenated.attrs["D_m"] = D_m
+    concatenated.attrs["D_m_std"] = D_m_std
     concatenated.attrs["habitat"] = hab
     concatenated.attrs["group"] = group
     concatenated.attrs["species"] = loaded_species
