@@ -106,11 +106,8 @@ class MasksDataset:
     def __init__(self):
         # Create a dictionary of mask datasets. More masks can be added in the future.
         self.masks = {
-            "Aqu": AquaticMaskDataset(),
-            "Ter": TerrestrialMaskDataset(),
-            "Arb": TerrestrialMaskDataset(),
-            "Fos": TerrestrialMaskDataset(),
-            "Aer": TerrestrialMaskDataset(),
+            "aquatic": AquaticMaskDataset(),
+            "terrestrial": TerrestrialMaskDataset(),
             # "Road": RoadMaskDataset(buffer_distance=buffer_distance)  # Example of another mask
         }
 

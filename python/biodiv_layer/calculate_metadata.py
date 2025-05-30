@@ -9,7 +9,7 @@ if __name__ == "__main__":
               "resolution": 25,}
     base_path = Path(__file__).parent / Path("../../data/processed")  / config["hash"]
     df = pd.DataFrame(columns=["group", "habitat", "species number", "distance", "median mean dispersal range (km)", "std mean dispersal range (km)"])
-    for hab in ["Aqu", "Ter"]:
+    for hab in ["aquatic", "terrestial"]:
         for group in GROUP_INFO.keys():
             try:
                 suitability_dataset = compile_group_suitability(group, hab, config["resolution"])

@@ -20,24 +20,24 @@ import pandas as pd
 
 # 17 groups
 GROUP_INFO = {
-            "Amphibians": EuclideanDistance(),
-            "Bees": LCPDistance(),
-            "Beetles": LCPDistance(),
-            "Birds": EuclideanDistance(),
-            "Bryophytes": EuclideanDistance(),
-            "Mammals": LCPDistance(),
-            "Reptiles": LCPDistance(),
-            "Fishes": LCPDistance(),
-            "Vascular_plants": EuclideanDistance(),
-            "Spiders": LCPDistance(),
-            "Dragonflies": LCPDistance(),
-            "Grasshoppers": LCPDistance(),
-            "Butterflies": LCPDistance(),
-            "Fungi": EuclideanDistance(),
-            "Molluscs": LCPDistance(),
-            "Lichens": EuclideanDistance(),
-            "May_stone_caddisflies": LCPDistance(),
-            }
+    "amphibians": EuclideanDistance(),
+    "bees": LCPDistance(),
+    "birds": EuclideanDistance(),
+    "bryophytes": EuclideanDistance(),
+    "coleoptera": LCPDistance(),
+    "fishes": LCPDistance(),
+    "fungi": EuclideanDistance(),
+    "lepidoptera": LCPDistance(),
+    "lichens": EuclideanDistance(),
+    "mammals": LCPDistance(),
+    "may_stone_caddis_flies": LCPDistance(),
+    "molluscs": LCPDistance(),
+    "odonata": LCPDistance(),
+    "orthoptera": LCPDistance(),
+    "reptiles": LCPDistance(),
+    "spiders": LCPDistance(),
+    "vascular_plants": EuclideanDistance(),
+}
 
 def compile_group_suitability(group, hab, resolution):
     """
@@ -55,16 +55,12 @@ def compile_group_suitability(group, hab, resolution):
     
     species_in_hab = []
     for sp in species:
-        habitats = traits.get_habitat(sp)
-        # if both Aqu and Ter --> Aqu by default
-        if len(habitats) > 1 and "Aqu" in habitats:
-            habitats = ["Aqu"]
-        if hab in habitats:
+        if traits.get_habitat(sp) == hab:
             species_in_hab.append(sp)
         
     if len(species) == 0:
         raise ValueError(f"No data found for group {group}")
-    print(f"Group {group} has {len(species)} species")
+    print(f"Group {group} has {len(species_in_hab)} species in habitat {hab}")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Calculate buffer distance, get Swiss boundary, and buffer
@@ -187,10 +183,10 @@ def compile_group_suitability(group, hab, resolution):
 
 if __name__ == "__main__":
     # Example usage
-    # group = "Mammals"
-    # hab = "Aqu"
-    # resolution = 25  # meters
-    # suitability_dataset = compile_group_suitability(group, hab, resolution)
+    group = "mammals"
+    hab = "terrestrial"
+    resolution = 25  # meters
+    suitability_dataset = compile_group_suitability(group, hab, resolution)
     
     # precalculating mean suitability maps for all groups
     import concurrent.futures

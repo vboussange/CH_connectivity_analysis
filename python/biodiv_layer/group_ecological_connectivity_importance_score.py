@@ -89,7 +89,7 @@ if __name__ == "__main__":
     base_path = Path(__file__).parent / Path("../../data/processed")  / config["hash"]
     ecis_path = base_path / "ecological_connectivity_importance_score"
     ecis_path.mkdir(parents=True, exist_ok=True)
-    for hab in ["Aqu", "Ter"]:
+    for hab in ["aquatic", "terrestrial"]:
         print("Processing type: ", hab)
         ecis = calculate_ecis(hab, base_path, config["aggregation"]).rio.set_crs(CRS_CH)
         ecis = ecis.rio.reproject_match(REF_RASTER)

@@ -14,15 +14,13 @@ args = parser.parse_args()
 # Set GPU before importing JAX
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
 
-import jax
 import math
 import sys
 import xarray as xr
-import rioxarray
 import jax.numpy as jnp
 from pathlib import Path
-from jaxscape.euclidean_distance import EuclideanDistance, LCPDistance
-from jaxscape.sensitivity_analysis import SensitivityAnalysis, d_permeability_vmap
+from jaxscape import EuclideanDistance, LCPDistance
+from jaxscape import SensitivityAnalysis
 from copy import deepcopy
 import git
 import warnings
@@ -101,10 +99,10 @@ if __name__ == "__main__":
         "hash": sha
     }
 
-    try:
-        for sens_type in ["permeability", "quality"]:
+    for sens_type in ["permeability", "quality"]:
+        try:
             run_elasticity_analysis_for_group(args.group, args.hab, sens_type, config)
-    except Exception as e:
-        print(f"Failed to compute elasticity w.r.t. {sens_type} for {args.group}, {args.hab}: {str(e)}")
+        except Exception as e:
+            print(f"Failed to compute elasticity w.r.t. {sens_type} for {args.group}, {args.hab}: {str(e)}")
 
     print("Job completed.")
