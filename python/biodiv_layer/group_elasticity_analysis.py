@@ -6,8 +6,8 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(description='Run elasticity analysis.')
-parser.add_argument('--group', default='Mammals', help='Taxonomic group')
-parser.add_argument('--hab', default='Ter', help='Habitat type (Aqu/Ter)')
+parser.add_argument('--group', default='mammals', help='Taxonomic group')
+parser.add_argument('--hab', default='aquatic', help='Habitat type (aquatic/terrestrial)')
 parser.add_argument('--gpu_id', default='0', help='GPU ID to use')
 args = parser.parse_args()
 

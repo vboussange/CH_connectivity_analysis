@@ -84,7 +84,7 @@ def calculate_ecis(hab, base_path, aggregation):
     return total_elasticity
 
 if __name__ == "__main__":
-    config = {"hash": "277b08f",
+    config = {"hash": "3dcf5b2",
               "aggregation": "max",}
     base_path = Path(__file__).parent / Path("../../data/processed")  / config["hash"]
     ecis_path = base_path / "ecological_connectivity_importance_score"
@@ -99,13 +99,13 @@ if __name__ == "__main__":
         ecis.rio.to_raster(str(out_file) + ".tif", compress="zstd")
         
         if True:
-            plot_raster(ecis, f"Ecological Connectivity Importance Score ({hab})", out_file.with_suffix(".png"))
+            plot_raster(ecis, f"Ecological Connectivity Importance ({hab})", out_file.with_suffix(".png"))
 
 
     # Combine Aqu and Ter rasters based on the aggregation method
     logger.info("Combining Aqu and Ter rasters using aggregation: %s", config["aggregation"])
-    aqu_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu.tif"))
-    ter_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Ter.tif"))
+    aqu_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_aquatic.tif"))
+    ter_raster = rioxarray.open_rasterio(str(ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_terrestrial.tif"))
 
     if config["aggregation"] == "max":
         combined_raster = rescale(xr.ufuncs.fmax(ter_raster, aqu_raster))
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     # Save the combined raster
     combined_raster = combined_raster.rio.set_crs(CRS_CH)
-    combined_out_file = ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_Aqu_Ter"
+    combined_out_file = ecis_path / f"ecological_connectivity_importance_score_{config['aggregation']}_aquatic_terrestrial"
     logger.info("Saving combined raster to: %s", combined_out_file.with_suffix(".tif"))
     combined_raster.rio.to_raster(str(combined_out_file.with_suffix(".tif")), compress="zstd")
-    plot_raster(ecis, f"Ecological Connectivity Importance Score", combined_out_file.with_suffix(".png"))
+    plot_raster(ecis, f"Ecological Connectivity Importance", combined_out_file.with_suffix(".png"))
