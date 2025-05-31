@@ -49,7 +49,7 @@ Access to the mean suitability maps for each taxonomic group, to the individual 
 - `src/*`: Utility functions.
 
 ## Results
-Elasticity maps and the Ecological connectivity importance score product are hosted under [this Zenodo archive](https://zenodo.org/records/14676988) and placed under `data/processed/HASH/`. Permeability elasticity maps are provided exclusively for groups where least-cost path distance is used to calculate proximity. For groups where Euclidean distance is used, species movement is assumed to be unaffected by the landscape.
+Elasticity maps and the Ecological connectivity importance score product are hosted under [this Zenodo archive](https://zenodo.org/records/14676988). Permeability elasticity maps are provided exclusively for groups where least-cost path distance is used to calculate proximity. For groups where Euclidean distance is used, species movement is assumed to be unaffected by the landscape.
 
 ## Roadmap
 - [ ] Harmonize `.nc` and `.tiff` file formats.
