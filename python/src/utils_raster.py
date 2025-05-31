@@ -3,6 +3,7 @@ import rioxarray
 import geopandas as gpd
 import numpy as np
 from scipy import ndimage
+import logging
 CRS_CH = "EPSG:2056" # https://epsg.io/2056
 
 def calculate_resolution(raster):
@@ -39,7 +40,7 @@ def load_raster(path, scale=True):
                 raster_min = raster.min().item()
 
                 if (raster_max > 1) & (raster_min < 100):
-                    print("Rescaling habitat quality between 0 and 1")
+                    logging.debug("Rescaling habitat quality between 0 and 1")
                     raster = raster / 100.  # Scale values
                 else:
                     raise ValueError("Raster values are not in the expected range")

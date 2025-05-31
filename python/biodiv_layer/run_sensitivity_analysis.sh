@@ -2,8 +2,8 @@
 
 # Configuration
 GPUS=(0 1 2 3 4 5)
-groups=("Amphibians" "Bees" "Beetles" "Birds" "Bryophytes" "Mammals" "Reptiles" "Fishes" "Vascular_plants" "Spiders" "Dragonflies" "Grasshoppers" "Butterflies" "Fungi" "Molluscs" "Lichens" "May_stone_caddisflies")
-habs=("Aqu" "Ter")
+groups=("amphibians" "bees" "birds" "bryophytes" "coleoptera" "fishes" "fungi" "lepidoptera" "lichens" "mammals" "may_stone_caddis_flies" "molluscs" "odonata" "orthoptera" "reptiles" "spiders" "vascular_plants")
+habs=("aquatic" "terrestrial")
 LOG_DIR="./logs"
 LOG_FILE="${LOG_DIR}/elasticity_analysis_$(date +%Y%m%d_%H%M%S).log"
 PROGRESS_FILE="${LOG_DIR}/progress_status.log"

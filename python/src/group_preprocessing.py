@@ -20,31 +20,30 @@ import pandas as pd
 
 # 17 groups
 GROUP_INFO = {
-            "Amphibians": EuclideanDistance(),
-            "Bees": LCPDistance(),
-            "Beetles": LCPDistance(),
-            "Birds": EuclideanDistance(),
-            "Bryophytes": EuclideanDistance(),
-            "Mammals": LCPDistance(),
-            "Reptiles": LCPDistance(),
-            "Fishes": LCPDistance(),
-            "Vascular_plants": EuclideanDistance(),
-            "Spiders": LCPDistance(),
-            "Dragonflies": LCPDistance(),
-            "Grasshoppers": LCPDistance(),
-            "Butterflies": LCPDistance(),
-            "Fungi": EuclideanDistance(),
-            "Molluscs": LCPDistance(),
-            "Lichens": EuclideanDistance(),
-            "May_stone_caddisflies": LCPDistance(),
-            }
+    "amphibians": EuclideanDistance(),
+    "bees": LCPDistance(),
+    "birds": EuclideanDistance(),
+    "bryophytes": EuclideanDistance(),
+    "coleoptera": LCPDistance(),
+    "fishes": LCPDistance(),
+    "fungi": EuclideanDistance(),
+    "lepidoptera": LCPDistance(),
+    "lichens": EuclideanDistance(),
+    "mammals": LCPDistance(),
+    "may_stone_caddis_flies": LCPDistance(),
+    "molluscs": LCPDistance(),
+    "odonata": LCPDistance(),
+    "orthoptera": LCPDistance(),
+    "reptiles": LCPDistance(),
+    "spiders": LCPDistance(),
+    "vascular_plants": EuclideanDistance(),
+}
 
 def compile_group_suitability(group, hab, resolution):
     """
     Incrementally compute mean and std of the suitability rasters for all species in a taxonomic group.
     """
     cache_path = Path(__file__).parent / Path(f"../../data/processed/{hab}/suitability_{resolution}m_{group}_{hab}.tif")
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         concatenated = load_geotiff_dataset(cache_path)
         res_lat, res_lon = calculate_resolution(concatenated)
@@ -54,12 +53,16 @@ def compile_group_suitability(group, hab, resolution):
     traits = TraitsCH()
     species = traits.get_all_species_from_group(group).to_list()
     
-    species = [sp for sp in species if hab in traits.get_habitat(sp)]
+    species_in_hab = []
+    for sp in species:
+        if traits.get_habitat(sp) == hab:
+            species_in_hab.append(sp)
         
     if len(species) == 0:
         raise ValueError(f"No data found for group {group}")
-    print(f"Group {group} has {len(species)} species")
-    
+    print(f"Group {group} has {len(species_in_hab)} species in habitat {hab}")
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Calculate buffer distance, get Swiss boundary, and buffer
     nsdm_dataset = NSDM()
 
@@ -69,7 +72,7 @@ def compile_group_suitability(group, hab, resolution):
     available_species = []
     species_data = []
 
-    for sp in species:
+    for sp in species_in_hab:
         formatted_species_name = sp.replace(" ", ".")
         filename_pattern = f"*{formatted_species_name}_reg_covariate_ensemble.tif"
         raster_file = list(NSDM_PATH[resolution].glob(filename_pattern))
@@ -88,7 +91,8 @@ def compile_group_suitability(group, hab, resolution):
     species_df = pd.DataFrame(species_data)
     species_df.to_csv(available_species_path, index=False)
 
-    D_m = species_df.dispersal_range_km.mean() * 1000  # convert to meters
+    D_m = species_df.dispersal_range_km.median() * 1000  # convert to meters
+    D_m_std = species_df.dispersal_range_km.std() * 1000  # convert to meters
     switzerland_boundary = get_CH_border()
     # padding to avoid edge effects
     switzerland_buffer = switzerland_boundary.buffer(3 * D_m)
@@ -166,6 +170,7 @@ def compile_group_suitability(group, hab, resolution):
 
     # Store metadata
     concatenated.attrs["D_m"] = D_m
+    concatenated.attrs["D_m_std"] = D_m_std
     concatenated.attrs["habitat"] = hab
     concatenated.attrs["group"] = group
     concatenated.attrs["species"] = loaded_species
@@ -178,10 +183,10 @@ def compile_group_suitability(group, hab, resolution):
 
 if __name__ == "__main__":
     # Example usage
-    # group = "Mammals"
-    # hab = "Aqu"
-    # resolution = 25  # meters
-    # suitability_dataset = compile_group_suitability(group, hab, resolution)
+    group = "mammals"
+    hab = "terrestrial"
+    resolution = 25  # meters
+    suitability_dataset = compile_group_suitability(group, hab, resolution)
     
     # precalculating mean suitability maps for all groups
     import concurrent.futures
