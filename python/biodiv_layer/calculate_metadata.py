@@ -18,8 +18,8 @@ if __name__ == "__main__":
                 df = pd.concat([df, pd.DataFrame({"group": [group], 
                                                   "habitat": [hab], 
                                                   "species number": [species_number], 
-                                                  "distance": [GROUP_INFO[group]], 
-                                                  "median mean dispersal range (km)": [round(D_m / 1000, 2)],
+                                                  "distance": [GROUP_INFO[group].__class__.__name__], 
+                                                  "median mean dispersal range (km)": [round(D_m / 1000, 3)],
                                                   "std mean dispersal range (km)": [round(suitability_dataset.attrs["D_m_std"] / 1000, 2)]})],
                                                 ignore_index=True)
             except Exception as e:
