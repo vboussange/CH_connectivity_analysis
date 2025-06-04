@@ -34,6 +34,8 @@ from utils_raster import upscale, downscale, crop_raster, calculate_resolution
 from masks import get_CH_border
 
 def proximity(dist, D_m, alpha):
+    """
+    Dispersal kernel. `dist` should be in ecological units (ec), `D_m` in meters, `alpha` in m/ec."""
     return jnp.exp(-dist * alpha / D_m)
 
 def run_elasticity_analysis_for_group(group, hab, sens_type, config):
@@ -55,11 +57,16 @@ def run_elasticity_analysis_for_group(group, hab, sens_type, config):
 
     quality = jnp.array(quality_raster.values, dtype=config["dtype"])
     quality = jnp.nan_to_num(quality, nan=0.0)
-    quality = jnp.where(quality == 0, 1e-5, quality)
+    quality = jnp.clip(quality, 1e-5, None)
 
-    dependency_range = math.ceil(3 * D_m / upscale_resolution)
-    mean_dist = 1 / jnp.mean(quality)
-    alpha = upscale_resolution / mean_dist if isinstance(distance_fn, LCPDistance) else upscale_resolution
+    dependency_range = math.ceil(3 * D_m / upscale_resolution) # [pixel]
+
+    if isinstance(distance_fn, LCPDistance):
+        mean_dist = jnp.mean(1 / quality) #  [ecological unit (ec)] / [pixel]
+        alpha = upscale_resolution / mean_dist # [m] / [ec]
+    else:
+        alpha = upscale_resolution # [m]
+
 
     sensitivity_analyzer = SensitivityAnalysis(
         quality_raster=quality,

@@ -42,9 +42,9 @@ We also use a dataset of traits to derive species habitats and dispersal range. 
 Access to the mean suitability maps for each taxonomic group, to the individual species suitability maps, and to the individual species dispersal range data, is restricted but may be considered upon request.
 
 ## File description
-- `python/biodiv_layer/group_elasticity_analysis.py`: Main script to calculate permeability and quality elasticities at the taxonomic group level for a given habitat (aquatic or terrestrial). See header on how to use it, or simply run `run_sensitivity_analysis.sh`.
-- `python/biodiv_layer/run_sensitivity_analysis.sh`: runs the `group_elasticity_analysis.py` scripts for each group and habitat.
-- `group_summed_elasticities.py`: Aggregates elasticities at the habitat level to calculate the habitat-specific Ecological connectivity importance score.
+- `python/biodiv_layer/run_group_sensitivity_analysis.py`: Main script to calculate permeability and quality elasticities at the taxonomic group level for a given habitat (aquatic or terrestrial). See header on how to use it, or simply run `run_sensitivity_analysis.sh`.
+- `python/biodiv_layer/run_sensitivity_analysis.sh`: runs the `run_group_sensitivity_analysis.py` scripts for each group and habitat.
+- `calculate_eci.py`: Aggregates elasticities at the habitat level to calculate the habitat-specific ecological connectivity importance (ECI) score.
 - `calculate_metdata.py`: Generates a `.csv` file listing all species and associated dispersal range used in the calculation of the habitat-specific Ecological connectivity importance score.
 - `src/*`: Utility functions.
 
